@@ -16,7 +16,6 @@ services:
     build: ./edustream-backend/gateway
     container_name: edustream_gateway
     ports: ["5000:5000"]
-    env_file: ./edustream-backend/.env
     depends_on: [mongo]
     
     networks: [edustream_net]
@@ -25,7 +24,6 @@ services:
     build: ./edustream-backend/services/auth-service
     container_name: edustream_auth
     ports: ["5001:5001"]
-    env_file: ./edustream-backend/.env
     depends_on: [mongo]
     dns:\n      - 8.8.8.8
     networks: [edustream_net]
@@ -34,7 +32,6 @@ services:
     build: ./edustream-backend/services/user-service
     container_name: edustream_user
     ports: ["5002:5002"]
-    env_file: ./edustream-backend/.env
     depends_on: [mongo]
     dns:\n      - 8.8.8.8
     networks: [edustream_net]
@@ -43,7 +40,6 @@ services:
     build: ./edustream-backend/services/course-service
     container_name: edustream_course
     ports: ["5003:5003"]
-    env_file: ./edustream-backend/.env
     depends_on: [mongo]
     dns:\n      - 8.8.8.8
     networks: [edustream_net]
@@ -52,7 +48,6 @@ services:
     build: ./edustream-backend/services/media-service
     container_name: edustream_media
     ports: ["5004:5004"]
-    env_file: ./edustream-backend/.env
     depends_on: [mongo]
     
     networks: [edustream_net]
@@ -61,7 +56,6 @@ services:
     build: ./edustream-backend/services/payment-service
     container_name: edustream_payment
     ports: ["5005:5005"]
-    env_file: ./edustream-backend/.env
     depends_on: [mongo]
     dns:\n      - 8.8.8.8
     networks: [edustream_net]
@@ -70,7 +64,6 @@ services:
     build: ./edustream-backend/services/notification-service
     container_name: edustream_notification
     ports: ["5006:5006"]
-    env_file: ./edustream-backend/.env
     depends_on: [mongo]
     dns:\n      - 8.8.8.8
     networks: [edustream_net]
@@ -79,7 +72,6 @@ services:
     build: ./edustream-backend/services/review-service
     container_name: edustream_review
     ports: ["5007:5007"]
-    env_file: ./edustream-backend/.env
     depends_on: [mongo]
     dns:\n      - 8.8.8.8
     networks: [edustream_net]
@@ -88,7 +80,6 @@ services:
     build: ./edustream-backend/services/search-service
     container_name: edustream_search
     ports: ["5008:5008"]
-    env_file: ./edustream-backend/.env
     depends_on: [mongo]
     dns:\n      - 8.8.8.8
     networks: [edustream_net]
