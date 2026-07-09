@@ -1,7 +1,8 @@
 FROM node:20-alpine
 WORKDIR /app
-COPY package*.json ./
+COPY services/search-service/package*.json ./
 RUN npm install --production
-COPY . .
+COPY services/search-service/ ./
+COPY shared/ /shared
 EXPOSE 5008
 CMD ["node", "src/index.js"]
