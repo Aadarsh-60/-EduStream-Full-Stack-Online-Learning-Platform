@@ -1,22 +1,11 @@
 version: '3.8'
 
 services:
-  mongo:
-    image: mongo:7
-    container_name: edustream_mongo
-    restart: always
-    ports:
-      - "27018:27017"
-    volumes:
-      - mongo_data:/data/db
-    networks:
-      - edustream_net
 
   gateway:
     build: ./edustream-backend/gateway
     container_name: edustream_gateway
     ports: ["5000:5000"]
-    depends_on: [mongo]
     
     networks: [edustream_net]
 
@@ -24,7 +13,6 @@ services:
     build: ./edustream-backend/services/auth-service
     container_name: edustream_auth
     ports: ["5001:5001"]
-    depends_on: [mongo]
     dns:\n      - 8.8.8.8
     networks: [edustream_net]
 
@@ -32,7 +20,6 @@ services:
     build: ./edustream-backend/services/user-service
     container_name: edustream_user
     ports: ["5002:5002"]
-    depends_on: [mongo]
     dns:\n      - 8.8.8.8
     networks: [edustream_net]
 
@@ -40,7 +27,6 @@ services:
     build: ./edustream-backend/services/course-service
     container_name: edustream_course
     ports: ["5003:5003"]
-    depends_on: [mongo]
     dns:\n      - 8.8.8.8
     networks: [edustream_net]
 
@@ -48,7 +34,6 @@ services:
     build: ./edustream-backend/services/media-service
     container_name: edustream_media
     ports: ["5004:5004"]
-    depends_on: [mongo]
     
     networks: [edustream_net]
 
@@ -56,7 +41,6 @@ services:
     build: ./edustream-backend/services/payment-service
     container_name: edustream_payment
     ports: ["5005:5005"]
-    depends_on: [mongo]
     dns:\n      - 8.8.8.8
     networks: [edustream_net]
 
@@ -64,7 +48,6 @@ services:
     build: ./edustream-backend/services/notification-service
     container_name: edustream_notification
     ports: ["5006:5006"]
-    depends_on: [mongo]
     dns:\n      - 8.8.8.8
     networks: [edustream_net]
 
@@ -72,7 +55,6 @@ services:
     build: ./edustream-backend/services/review-service
     container_name: edustream_review
     ports: ["5007:5007"]
-    depends_on: [mongo]
     dns:\n      - 8.8.8.8
     networks: [edustream_net]
 
@@ -80,12 +62,10 @@ services:
     build: ./edustream-backend/services/search-service
     container_name: edustream_search
     ports: ["5008:5008"]
-    depends_on: [mongo]
     dns:\n      - 8.8.8.8
     networks: [edustream_net]
 
 volumes:
-  mongo_data:
 
 networks:
   edustream_net:
