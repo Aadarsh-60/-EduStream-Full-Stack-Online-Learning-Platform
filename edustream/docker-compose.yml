@@ -35,7 +35,8 @@ services:
     depends_on: [mongo]
     volumes:
       - ./edustream-backend/shared:/shared
-    dns:\n      - 8.8.8.8
+    dns:
+      - 8.8.8.8
     networks: [edustream_net]
 
   user-service:
@@ -48,7 +49,8 @@ services:
     depends_on: [mongo]
     volumes:
       - ./edustream-backend/shared:/shared
-    dns:\n      - 8.8.8.8
+    dns:
+      - 8.8.8.8
     networks: [edustream_net]
 
   course-service:
@@ -61,7 +63,8 @@ services:
     depends_on: [mongo]
     volumes:
       - ./edustream-backend/shared:/shared
-    dns:\n      - 8.8.8.8
+    dns:
+      - 8.8.8.8
     networks: [edustream_net]
 
   media-service:
@@ -87,7 +90,8 @@ services:
     depends_on: [mongo]
     volumes:
       - ./edustream-backend/shared:/shared
-    dns:\n      - 8.8.8.8
+    dns:
+      - 8.8.8.8
     networks: [edustream_net]
 
   notification-service:
@@ -100,7 +104,8 @@ services:
     depends_on: [mongo]
     volumes:
       - ./edustream-backend/shared:/shared
-    dns:\n      - 8.8.8.8
+    dns:
+      - 8.8.8.8
     networks: [edustream_net]
 
   review-service:
@@ -113,7 +118,8 @@ services:
     depends_on: [mongo]
     volumes:
       - ./edustream-backend/shared:/shared
-    dns:\n      - 8.8.8.8
+    dns:
+      - 8.8.8.8
     networks: [edustream_net]
 
   search-service:
@@ -126,7 +132,8 @@ services:
     depends_on: [mongo]
     volumes:
       - ./edustream-backend/shared:/shared
-    dns:\n      - 8.8.8.8
+    dns:
+      - 8.8.8.8
     networks: [edustream_net]
 
 volumes:
