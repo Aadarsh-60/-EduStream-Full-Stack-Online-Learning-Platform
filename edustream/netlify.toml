@@ -1,8 +1,4 @@
 [build]
-  command = "cd edustream-frontend && npm install && npm run build"
-  publish = "edustream-frontend/dist"
-
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
+  base = "edustream-frontend"
+  command = "npm install && npm run build"
+  publish = "dist"
