@@ -1,0 +1,130 @@
+version: '3.8'
+
+services:
+  # ── Infrastructure ────────────────────────────────────────────
+  mongo:
+    image: mongo:7
+    container_name: edustream_mongo
+    restart: always
+    ports:
+      - "27018:27017"
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - edustream_net
+
+  # ── API Gateway ───────────────────────────────────────────────
+  gateway:
+    build: ./gateway
+    container_name: edustream_gateway
+    restart: always
+    ports:
+      - "5000:5000"
+    env_file: .env
+    depends_on: [mongo]
+    volumes:
+      - ./shared:/shared
+    networks:
+      - edustream_net
+
+  # ── Microservices ─────────────────────────────────────────────
+  auth-service:
+    build: ./services/auth-service
+    container_name: edustream_auth
+    ports: ["5001:5001"]
+    env_file: .env
+    depends_on: [mongo]
+    volumes:
+      - ./shared:/shared
+    dns:
+      - 8.8.8.8
+    networks: [edustream_net]
+
+  user-service:
+    build: ./services/user-service
+    container_name: edustream_user
+    ports: ["5002:5002"]
+    env_file: .env
+    depends_on: [mongo]
+    volumes:
+      - ./shared:/shared
+    dns:
+      - 8.8.8.8
+    networks: [edustream_net]
+
+  course-service:
+    build: ./services/course-service
+    container_name: edustream_course
+    ports: ["5003:5003"]
+    env_file: .env
+    depends_on: [mongo]
+    volumes:
+      - ./shared:/shared
+    dns:
+      - 8.8.8.8
+    networks: [edustream_net]
+
+  media-service:
+    build: ./services/media-service
+    container_name: edustream_media
+    ports: ["5004:5004"]
+    env_file: .env
+    depends_on: [mongo]
+    volumes:
+      - ./shared:/shared
+    networks: [edustream_net]
+
+  payment-service:
+    build: ./services/payment-service
+    container_name: edustream_payment
+    ports: ["5005:5005"]
+    env_file: .env
+    depends_on: [mongo]
+    volumes:
+      - ./shared:/shared
+    dns:
+      - 8.8.8.8
+    networks: [edustream_net]
+
+  notification-service:
+    build: ./services/notification-service
+    container_name: edustream_notification
+    ports: ["5006:5006"]
+    env_file: .env
+    depends_on: [mongo]
+    volumes:
+      - ./shared:/shared
+    dns:
+      - 8.8.8.8
+    networks: [edustream_net]
+
+  review-service:
+    build: ./services/review-service
+    container_name: edustream_review
+    ports: ["5007:5007"]
+    env_file: .env
+    depends_on: [mongo]
+    volumes:
+      - ./shared:/shared
+    dns:
+      - 8.8.8.8
+    networks: [edustream_net]
+
+  search-service:
+    build: ./services/search-service
+    container_name: edustream_search
+    ports: ["5008:5008"]
+    env_file: .env
+    depends_on: [mongo]
+    volumes:
+      - ./shared:/shared
+    dns:
+      - 8.8.8.8
+    networks: [edustream_net]
+
+volumes:
+  mongo_data:
+
+networks:
+  edustream_net:
+    driver: bridge
