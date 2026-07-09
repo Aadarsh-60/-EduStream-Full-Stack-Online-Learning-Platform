@@ -4,7 +4,7 @@ services:
     name: gateway
     env: docker
     dockerContext: edustream/edustream-backend/gateway
-    dockerfilePath: Dockerfile
+    dockerfilePath: edustream/edustream-backend/gateway/Dockerfile
     plan: free
     envVars:
       - key: PORT
@@ -33,7 +33,7 @@ services:
     name: auth-service
     env: docker
     dockerContext: edustream/edustream-backend
-    dockerfilePath: services/auth-service/Dockerfile
+    dockerfilePath: edustream/edustream-backend/services/auth-service/Dockerfile
     plan: free
     envVars:
       - key: PORT
@@ -65,7 +65,7 @@ services:
     name: user-service
     env: docker
     dockerContext: edustream/edustream-backend
-    dockerfilePath: services/user-service/Dockerfile
+    dockerfilePath: edustream/edustream-backend/services/user-service/Dockerfile
     plan: free
     envVars:
       - key: PORT
@@ -85,7 +85,7 @@ services:
     name: course-service
     env: docker
     dockerContext: edustream/edustream-backend
-    dockerfilePath: services/course-service/Dockerfile
+    dockerfilePath: edustream/edustream-backend/services/course-service/Dockerfile
     plan: free
     envVars:
       - key: PORT
@@ -99,7 +99,7 @@ services:
     name: media-service
     env: docker
     dockerContext: edustream/edustream-backend
-    dockerfilePath: services/media-service/Dockerfile
+    dockerfilePath: edustream/edustream-backend/services/media-service/Dockerfile
     plan: free
     envVars:
       - key: PORT
@@ -119,7 +119,7 @@ services:
     name: payment-service
     env: docker
     dockerContext: edustream/edustream-backend
-    dockerfilePath: services/payment-service/Dockerfile
+    dockerfilePath: edustream/edustream-backend/services/payment-service/Dockerfile
     plan: free
     envVars:
       - key: PORT
@@ -139,7 +139,7 @@ services:
     name: notification-service
     env: docker
     dockerContext: edustream/edustream-backend
-    dockerfilePath: services/notification-service/Dockerfile
+    dockerfilePath: edustream/edustream-backend/services/notification-service/Dockerfile
     plan: free
     envVars:
       - key: PORT
@@ -153,7 +153,7 @@ services:
     name: review-service
     env: docker
     dockerContext: edustream/edustream-backend
-    dockerfilePath: services/review-service/Dockerfile
+    dockerfilePath: edustream/edustream-backend/services/review-service/Dockerfile
     plan: free
     envVars:
       - key: PORT
@@ -167,7 +167,7 @@ services:
     name: search-service
     env: docker
     dockerContext: edustream/edustream-backend
-    dockerfilePath: services/search-service/Dockerfile
+    dockerfilePath: edustream/edustream-backend/services/search-service/Dockerfile
     plan: free
     envVars:
       - key: PORT
