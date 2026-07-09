@@ -3,7 +3,7 @@ services:
   - type: web
     name: gateway
     env: docker
-    dockerContext: edustream-backend/gateway
+    dockerContext: edustream/edustream-backend/gateway
     dockerfilePath: Dockerfile
     plan: free
     envVars:
@@ -32,7 +32,7 @@ services:
   - type: pserv
     name: auth-service
     env: docker
-    dockerContext: edustream-backend
+    dockerContext: edustream/edustream-backend
     dockerfilePath: services/auth-service/Dockerfile
     envVars:
       - key: PORT
@@ -63,7 +63,7 @@ services:
   - type: pserv
     name: user-service
     env: docker
-    dockerContext: edustream-backend
+    dockerContext: edustream/edustream-backend
     dockerfilePath: services/user-service/Dockerfile
     envVars:
       - key: PORT
@@ -82,7 +82,7 @@ services:
   - type: pserv
     name: course-service
     env: docker
-    dockerContext: edustream-backend
+    dockerContext: edustream/edustream-backend
     dockerfilePath: services/course-service/Dockerfile
     envVars:
       - key: PORT
@@ -95,7 +95,7 @@ services:
   - type: pserv
     name: media-service
     env: docker
-    dockerContext: edustream-backend
+    dockerContext: edustream/edustream-backend
     dockerfilePath: services/media-service/Dockerfile
     envVars:
       - key: PORT
@@ -114,7 +114,7 @@ services:
   - type: pserv
     name: payment-service
     env: docker
-    dockerContext: edustream-backend
+    dockerContext: edustream/edustream-backend
     dockerfilePath: services/payment-service/Dockerfile
     envVars:
       - key: PORT
@@ -133,7 +133,7 @@ services:
   - type: pserv
     name: notification-service
     env: docker
-    dockerContext: edustream-backend
+    dockerContext: edustream/edustream-backend
     dockerfilePath: services/notification-service/Dockerfile
     envVars:
       - key: PORT
@@ -146,7 +146,7 @@ services:
   - type: pserv
     name: review-service
     env: docker
-    dockerContext: edustream-backend
+    dockerContext: edustream/edustream-backend
     dockerfilePath: services/review-service/Dockerfile
     envVars:
       - key: PORT
@@ -159,7 +159,7 @@ services:
   - type: pserv
     name: search-service
     env: docker
-    dockerContext: edustream-backend
+    dockerContext: edustream/edustream-backend
     dockerfilePath: services/search-service/Dockerfile
     envVars:
       - key: PORT
@@ -173,8 +173,8 @@ services:
   - type: web
     name: edustream-frontend
     env: static
-    buildCommand: npm install && npm run build
-    staticPublishPath: ./edustream-frontend/dist
+    buildCommand: cd edustream/edustream-frontend && npm install && npm run build
+    staticPublishPath: ./edustream/edustream-frontend/dist
     envVars:
       - key: VITE_API_URL
         value: https://edustream-gateway.onrender.com # Update with gateway URL
