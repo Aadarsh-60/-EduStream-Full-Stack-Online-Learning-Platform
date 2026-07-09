@@ -47,7 +47,9 @@ services.forEach(service => {
   env.REVIEW_SERVICE_URL = 'http://127.0.0.1:5007';
   env.SEARCH_SERVICE_URL = 'http://127.0.0.1:5008';
 
-  const child = spawn('node', [servicePath], { env });
+  // Pass --max-old-space-size=45 to strictly limit memory per process to 45MB
+  // This prevents Railway's 500MB free tier container from OOM crashing
+  const child = spawn('node', ['--max-old-space-size=45', servicePath], { env });
 
   child.stdout.on('data', (data) => {
     process.stdout.write(`[${service.name}] ${data}`);
