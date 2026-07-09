@@ -36,15 +36,16 @@ services.forEach(service => {
       env[`${service.name.toUpperCase()}_SERVICE_PORT`] = service.port;
   }
 
-  // Force inter-service communication to use localhost since they are all in one container
-  env.AUTH_SERVICE_URL = 'http://localhost:5001';
-  env.USER_SERVICE_URL = 'http://localhost:5002';
-  env.COURSE_SERVICE_URL = 'http://localhost:5003';
-  env.MEDIA_SERVICE_URL = 'http://localhost:5004';
-  env.PAYMENT_SERVICE_URL = 'http://localhost:5005';
-  env.NOTIFICATION_SERVICE_URL = 'http://localhost:5006';
-  env.REVIEW_SERVICE_URL = 'http://localhost:5007';
-  env.SEARCH_SERVICE_URL = 'http://localhost:5008';
+  // Force inter-service communication to use 127.0.0.1 since they are all in one container
+  // This avoids Node.js IPv6 '::1' resolution issues which can cause 503 connection refused
+  env.AUTH_SERVICE_URL = 'http://127.0.0.1:5001';
+  env.USER_SERVICE_URL = 'http://127.0.0.1:5002';
+  env.COURSE_SERVICE_URL = 'http://127.0.0.1:5003';
+  env.MEDIA_SERVICE_URL = 'http://127.0.0.1:5004';
+  env.PAYMENT_SERVICE_URL = 'http://127.0.0.1:5005';
+  env.NOTIFICATION_SERVICE_URL = 'http://127.0.0.1:5006';
+  env.REVIEW_SERVICE_URL = 'http://127.0.0.1:5007';
+  env.SEARCH_SERVICE_URL = 'http://127.0.0.1:5008';
 
   const child = spawn('node', [servicePath], { env });
 
