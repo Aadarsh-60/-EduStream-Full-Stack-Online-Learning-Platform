@@ -29,11 +29,12 @@ services:
         value: http://search-service:5008
 
   # ─── MICROSERVICES (Private, internal to Render) ───
-  - type: pserv
+  - type: web
     name: auth-service
     env: docker
     dockerContext: edustream/edustream-backend
     dockerfilePath: services/auth-service/Dockerfile
+    plan: free
     envVars:
       - key: PORT
         value: 5001
@@ -60,11 +61,12 @@ services:
       - key: SMTP_PASS
         sync: false
 
-  - type: pserv
+  - type: web
     name: user-service
     env: docker
     dockerContext: edustream/edustream-backend
     dockerfilePath: services/user-service/Dockerfile
+    plan: free
     envVars:
       - key: PORT
         value: 5002
@@ -79,11 +81,12 @@ services:
       - key: CLOUDINARY_API_SECRET
         sync: false
 
-  - type: pserv
+  - type: web
     name: course-service
     env: docker
     dockerContext: edustream/edustream-backend
     dockerfilePath: services/course-service/Dockerfile
+    plan: free
     envVars:
       - key: PORT
         value: 5003
@@ -92,11 +95,12 @@ services:
       - key: ACCESS_TOKEN_SECRET
         sync: false
 
-  - type: pserv
+  - type: web
     name: media-service
     env: docker
     dockerContext: edustream/edustream-backend
     dockerfilePath: services/media-service/Dockerfile
+    plan: free
     envVars:
       - key: PORT
         value: 5004
@@ -111,11 +115,12 @@ services:
       - key: CLOUDINARY_API_SECRET
         sync: false
 
-  - type: pserv
+  - type: web
     name: payment-service
     env: docker
     dockerContext: edustream/edustream-backend
     dockerfilePath: services/payment-service/Dockerfile
+    plan: free
     envVars:
       - key: PORT
         value: 5005
@@ -130,11 +135,12 @@ services:
       - key: RAZORPAY_WEBHOOK_SECRET
         sync: false
 
-  - type: pserv
+  - type: web
     name: notification-service
     env: docker
     dockerContext: edustream/edustream-backend
     dockerfilePath: services/notification-service/Dockerfile
+    plan: free
     envVars:
       - key: PORT
         value: 5006
@@ -143,11 +149,12 @@ services:
       - key: ACCESS_TOKEN_SECRET
         sync: false
 
-  - type: pserv
+  - type: web
     name: review-service
     env: docker
     dockerContext: edustream/edustream-backend
     dockerfilePath: services/review-service/Dockerfile
+    plan: free
     envVars:
       - key: PORT
         value: 5007
@@ -156,11 +163,12 @@ services:
       - key: ACCESS_TOKEN_SECRET
         sync: false
 
-  - type: pserv
+  - type: web
     name: search-service
     env: docker
     dockerContext: edustream/edustream-backend
     dockerfilePath: services/search-service/Dockerfile
+    plan: free
     envVars:
       - key: PORT
         value: 5008
