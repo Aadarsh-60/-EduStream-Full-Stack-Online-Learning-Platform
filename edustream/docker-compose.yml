@@ -14,126 +14,101 @@ services:
 
   gateway:
     build:
-      context: .
-      dockerfile: edustream-backend/gateway/Dockerfile
+      context: ./edustream-backend
+      dockerfile: ./gateway/Dockerfile
     container_name: edustream_gateway
     ports: ["5000:5000"]
     env_file: ./edustream-backend/.env
     depends_on: [mongo]
-    volumes:
-      - ./edustream-backend/shared:/shared
     
     networks: [edustream_net]
 
   auth-service:
     build:
-      context: .
-      dockerfile: edustream-backend/services/auth-service/Dockerfile
+      context: ./edustream-backend
+      dockerfile: ./services/auth-service/Dockerfile
     container_name: edustream_auth
     ports: ["5001:5001"]
     env_file: ./edustream-backend/.env
     depends_on: [mongo]
-    volumes:
-      - ./edustream-backend/shared:/shared
-    dns:
-      - 8.8.8.8
+    dns:\n      - 8.8.8.8
     networks: [edustream_net]
 
   user-service:
     build:
-      context: .
-      dockerfile: edustream-backend/services/user-service/Dockerfile
+      context: ./edustream-backend
+      dockerfile: ./services/user-service/Dockerfile
     container_name: edustream_user
     ports: ["5002:5002"]
     env_file: ./edustream-backend/.env
     depends_on: [mongo]
-    volumes:
-      - ./edustream-backend/shared:/shared
-    dns:
-      - 8.8.8.8
+    dns:\n      - 8.8.8.8
     networks: [edustream_net]
 
   course-service:
     build:
-      context: .
-      dockerfile: edustream-backend/services/course-service/Dockerfile
+      context: ./edustream-backend
+      dockerfile: ./services/course-service/Dockerfile
     container_name: edustream_course
     ports: ["5003:5003"]
     env_file: ./edustream-backend/.env
     depends_on: [mongo]
-    volumes:
-      - ./edustream-backend/shared:/shared
-    dns:
-      - 8.8.8.8
+    dns:\n      - 8.8.8.8
     networks: [edustream_net]
 
   media-service:
     build:
-      context: .
-      dockerfile: edustream-backend/services/media-service/Dockerfile
+      context: ./edustream-backend
+      dockerfile: ./services/media-service/Dockerfile
     container_name: edustream_media
     ports: ["5004:5004"]
     env_file: ./edustream-backend/.env
     depends_on: [mongo]
-    volumes:
-      - ./edustream-backend/shared:/shared
     
     networks: [edustream_net]
 
   payment-service:
     build:
-      context: .
-      dockerfile: edustream-backend/services/payment-service/Dockerfile
+      context: ./edustream-backend
+      dockerfile: ./services/payment-service/Dockerfile
     container_name: edustream_payment
     ports: ["5005:5005"]
     env_file: ./edustream-backend/.env
     depends_on: [mongo]
-    volumes:
-      - ./edustream-backend/shared:/shared
-    dns:
-      - 8.8.8.8
+    dns:\n      - 8.8.8.8
     networks: [edustream_net]
 
   notification-service:
     build:
-      context: .
-      dockerfile: edustream-backend/services/notification-service/Dockerfile
+      context: ./edustream-backend
+      dockerfile: ./services/notification-service/Dockerfile
     container_name: edustream_notification
     ports: ["5006:5006"]
     env_file: ./edustream-backend/.env
     depends_on: [mongo]
-    volumes:
-      - ./edustream-backend/shared:/shared
-    dns:
-      - 8.8.8.8
+    dns:\n      - 8.8.8.8
     networks: [edustream_net]
 
   review-service:
     build:
-      context: .
-      dockerfile: edustream-backend/services/review-service/Dockerfile
+      context: ./edustream-backend
+      dockerfile: ./services/review-service/Dockerfile
     container_name: edustream_review
     ports: ["5007:5007"]
     env_file: ./edustream-backend/.env
     depends_on: [mongo]
-    volumes:
-      - ./edustream-backend/shared:/shared
-    dns:
-      - 8.8.8.8
+    dns:\n      - 8.8.8.8
     networks: [edustream_net]
 
   search-service:
     build:
-      context: .
-      dockerfile: edustream-backend/services/search-service/Dockerfile
+      context: ./edustream-backend
+      dockerfile: ./services/search-service/Dockerfile
     container_name: edustream_search
     ports: ["5008:5008"]
     env_file: ./edustream-backend/.env
     depends_on: [mongo]
-    volumes:
-      - ./edustream-backend/shared:/shared
-    dns:
-      - 8.8.8.8
+    dns:\n      - 8.8.8.8
     networks: [edustream_net]
 
 volumes:
