@@ -1,8 +1,10 @@
 FROM node:20-alpine
 WORKDIR /app
-COPY services/notification-service/package*.json ./
+COPY package*.json ./
 RUN npm install --production
-COPY services/notification-service/ ./
-COPY shared/ /shared
+COPY . .
+# We just copied 'shared' inside this service folder, so it is in '.' 
+# We move it to the root /shared where the code expects it.
+RUN mv shared /shared
 EXPOSE 5006
 CMD ["node", "src/index.js"]
