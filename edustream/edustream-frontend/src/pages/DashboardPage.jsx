@@ -329,6 +329,7 @@ function AdminDashboard({ user }) {
   const [activeTab, setActiveTab] = useState('users'); // 'users' or 'courses'
   const [filterRole, setFilterRole] = useState('all'); // 'all', 'student', 'instructor'
   const [showAddUser, setShowAddUser] = useState(false);
+  const [selectedUser, setSelectedUser] = useState(null); // For manage modal
   
   // Add user form state
   const [newUser, setNewUser] = useState({ name: '', email: '', password: '', role: 'instructor' });
@@ -456,7 +457,7 @@ function AdminDashboard({ user }) {
                       {new Date(u.createdAt).toLocaleDateString()}
                     </td>
                     <td style={{ padding: '16px', textAlign: 'right' }}>
-                      <button className="btn btn-outline btn-sm" disabled>Manage</button>
+                      <button className="btn btn-outline btn-sm" onClick={() => setSelectedUser(u)}>Manage</button>
                     </td>
                   </tr>
                 ))}
@@ -538,6 +539,49 @@ function AdminDashboard({ user }) {
                 {addingUser ? 'Creating...' : 'Create User'}
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Manage User Modal */}
+      {selectedUser && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
+          <div className="card" style={{ width: '100%', maxWidth: 450, padding: 32, animation: 'fadeUp 0.3s ease' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+              <h2 style={{ fontSize: '1.4rem' }}>Manage User</h2>
+              <button onClick={() => setSelectedUser(null)} style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer' }}><X /></button>
+            </div>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 8 }}>
+                <div style={{ width: 60, height: 60, borderRadius: '50%', background: 'var(--navy-600)', overflow: 'hidden' }}>
+                  <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${selectedUser.name}`} alt="" style={{ width: '100%', height: '100%' }} />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '1.2rem', marginBottom: 4 }}>{selectedUser.name}</h3>
+                  <p style={{ color: 'var(--muted)', fontSize: '0.9rem' }}>{selectedUser.email}</p>
+                  <span className={`badge ${selectedUser.role === 'admin' ? 'badge-gold' : selectedUser.role === 'instructor' ? 'badge-indigo' : 'badge-green'}`} style={{ textTransform: 'capitalize', marginTop: 8, display: 'inline-block' }}>
+                    {selectedUser.role}
+                  </span>
+                </div>
+              </div>
+
+              <div style={{ padding: '16px', background: 'rgba(255,255,255,0.03)', borderRadius: 12, border: '1px solid var(--border)' }}>
+                <p style={{ fontSize: '0.85rem', color: 'var(--muted)', marginBottom: 12 }}>User ID: <span style={{ fontFamily: 'monospace', color: '#fff' }}>{selectedUser.userId || selectedUser._id}</span></p>
+                <p style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>Joined: <span style={{ color: '#fff' }}>{new Date(selectedUser.createdAt).toLocaleDateString()}</span></p>
+              </div>
+
+              <div style={{ display: 'flex', gap: 12, marginTop: 16 }}>
+                <button className="btn btn-outline" style={{ flex: 1 }} onClick={() => {
+                  toast.success('Role updated successfully! (Demo)');
+                  setSelectedUser(null);
+                }}>Change Role</button>
+                <button className="btn btn-primary" style={{ flex: 1, background: '#ef4444', borderColor: '#ef4444' }} onClick={() => {
+                  toast.success('User deleted successfully! (Demo)');
+                  setSelectedUser(null);
+                }}>Delete User</button>
+              </div>
+            </div>
           </div>
         </div>
       )}

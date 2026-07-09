@@ -1,0 +1,180 @@
+services:
+  # ─── API GATEWAY (Publicly Accessible) ─────────────
+  - type: web
+    name: gateway
+    env: docker
+    dockerContext: edustream-backend/gateway
+    dockerfilePath: Dockerfile
+    plan: free
+    envVars:
+      - key: PORT
+        value: 5000
+      - key: CLIENT_URL
+        value: https://edustream-frontend.onrender.com # Change this if your frontend URL is different
+      - key: AUTH_SERVICE_URL
+        value: http://auth-service:5001
+      - key: USER_SERVICE_URL
+        value: http://user-service:5002
+      - key: COURSE_SERVICE_URL
+        value: http://course-service:5003
+      - key: MEDIA_SERVICE_URL
+        value: http://media-service:5004
+      - key: PAYMENT_SERVICE_URL
+        value: http://payment-service:5005
+      - key: NOTIFICATION_SERVICE_URL
+        value: http://notification-service:5006
+      - key: REVIEW_SERVICE_URL
+        value: http://review-service:5007
+      - key: SEARCH_SERVICE_URL
+        value: http://search-service:5008
+
+  # ─── MICROSERVICES (Private, internal to Render) ───
+  - type: pserv
+    name: auth-service
+    env: docker
+    dockerContext: edustream-backend
+    dockerfilePath: services/auth-service/Dockerfile
+    envVars:
+      - key: PORT
+        value: 5001
+      - key: MONGO_URI
+        sync: false
+      - key: ACCESS_TOKEN_SECRET
+        sync: false
+      - key: REFRESH_TOKEN_SECRET
+        sync: false
+      - key: ACCESS_TOKEN_EXPIRY
+        value: 15m
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_CALLBACK_URL
+        value: https://edustream-gateway.onrender.com/api/auth/google/callback # Update gateway URL after first deploy
+      - key: SMTP_HOST
+        value: smtp.gmail.com
+      - key: SMTP_PORT
+        value: 587
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+
+  - type: pserv
+    name: user-service
+    env: docker
+    dockerContext: edustream-backend
+    dockerfilePath: services/user-service/Dockerfile
+    envVars:
+      - key: PORT
+        value: 5002
+      - key: MONGO_URI
+        sync: false
+      - key: ACCESS_TOKEN_SECRET
+        sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+
+  - type: pserv
+    name: course-service
+    env: docker
+    dockerContext: edustream-backend
+    dockerfilePath: services/course-service/Dockerfile
+    envVars:
+      - key: PORT
+        value: 5003
+      - key: MONGO_URI
+        sync: false
+      - key: ACCESS_TOKEN_SECRET
+        sync: false
+
+  - type: pserv
+    name: media-service
+    env: docker
+    dockerContext: edustream-backend
+    dockerfilePath: services/media-service/Dockerfile
+    envVars:
+      - key: PORT
+        value: 5004
+      - key: MONGO_URI
+        sync: false
+      - key: ACCESS_TOKEN_SECRET
+        sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+
+  - type: pserv
+    name: payment-service
+    env: docker
+    dockerContext: edustream-backend
+    dockerfilePath: services/payment-service/Dockerfile
+    envVars:
+      - key: PORT
+        value: 5005
+      - key: MONGO_URI
+        sync: false
+      - key: ACCESS_TOKEN_SECRET
+        sync: false
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false
+      - key: RAZORPAY_WEBHOOK_SECRET
+        sync: false
+
+  - type: pserv
+    name: notification-service
+    env: docker
+    dockerContext: edustream-backend
+    dockerfilePath: services/notification-service/Dockerfile
+    envVars:
+      - key: PORT
+        value: 5006
+      - key: MONGO_URI
+        sync: false
+      - key: ACCESS_TOKEN_SECRET
+        sync: false
+
+  - type: pserv
+    name: review-service
+    env: docker
+    dockerContext: edustream-backend
+    dockerfilePath: services/review-service/Dockerfile
+    envVars:
+      - key: PORT
+        value: 5007
+      - key: MONGO_URI
+        sync: false
+      - key: ACCESS_TOKEN_SECRET
+        sync: false
+
+  - type: pserv
+    name: search-service
+    env: docker
+    dockerContext: edustream-backend
+    dockerfilePath: services/search-service/Dockerfile
+    envVars:
+      - key: PORT
+        value: 5008
+      - key: MONGO_URI
+        sync: false
+      - key: ACCESS_TOKEN_SECRET
+        sync: false
+
+  # ─── FRONTEND (Static Site) ────────────────────────
+  - type: web
+    name: edustream-frontend
+    env: static
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./edustream-frontend/dist
+    envVars:
+      - key: VITE_API_URL
+        value: https://edustream-gateway.onrender.com # Update with gateway URL
