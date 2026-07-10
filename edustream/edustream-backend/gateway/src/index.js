@@ -4,30 +4,61 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
-import { createProxyMiddleware } from 'http-proxy-middleware';
+import mongoose from 'mongoose';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
+import { v2 as cloudinary } from 'cloudinary';
+import cookieParser from 'cookie-parser';
+
 import { verifyToken, optionalAuth } from './middlewares/auth.js';
 import { errorResponse } from '../../shared/utils/apiResponse.js';
+import errorHandler from '../../shared/middlewares/errorHandler.js';
 
+// Import all routers from microservices
+import authRoutes from '../../services/auth-service/src/routes/auth.routes.js';
+import userRoutes from '../../services/user-service/src/routes/user.routes.js';
+import courseRoutes from '../../services/course-service/src/routes/course.routes.js';
+import paymentRoutes from '../../services/payment-service/src/routes/payment.routes.js';
+import mediaRoutes from '../../services/media-service/src/routes/media.routes.js';
+import reviewRoutes from '../../services/review-service/src/routes/review.routes.js';
+import searchRoutes from '../../services/search-service/src/routes/search.routes.js';
+import notificationRoutes from '../../services/notification-service/src/routes/notification.routes.js';
+
+// Import IO setters
+import { setIo as setMediaIo } from '../../services/media-service/src/controllers/media.controller.js';
+import { setIo as setNotificationIo } from '../../services/notification-service/src/controllers/notification.controller.js';
 
 const app = express();
+const httpServer = createServer(app);
 const PORT = process.env.PORT || process.env.GATEWAY_PORT || 5000;
 
+// Force all internal service URLs to point to this monolith instance
+const monolithUrl = `http://localhost:${PORT}`;
+process.env.AUTH_SERVICE_URL = monolithUrl;
+process.env.USER_SERVICE_URL = monolithUrl;
+process.env.COURSE_SERVICE_URL = monolithUrl;
+process.env.MEDIA_SERVICE_URL = monolithUrl;
+process.env.PAYMENT_SERVICE_URL = monolithUrl;
+process.env.NOTIFICATION_SERVICE_URL = monolithUrl;
+process.env.REVIEW_SERVICE_URL = monolithUrl;
+process.env.SEARCH_SERVICE_URL = monolithUrl;
 
-
-app.set('trust proxy', 1);  //  This tells Express that it is sitting behind a proxy
+app.set('trust proxy', 1);
 
 app.use(helmet());
 app.use(cors({ origin: process.env.CLIENT_URL || 'http://localhost:5173', credentials: true }));
+app.use(cookieParser());
+app.use(express.json());
+app.use(express.raw({ type: 'application/json', limit: '5mb' })); // For webhooks
 app.use(morgan('dev'));
 
-// Global rate limiter - 1000 requests per 15 min per IP for dev
+// Global rate limiter
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 1000,
   handler: (req, res) => errorResponse(res, 429, 'Too many requests, please try again later'),
 });
 
-// Strict limiter for auth routes - brute force rokne ke liye (increased for dev)
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 200,
@@ -36,65 +67,52 @@ const authLimiter = rateLimit({
 
 app.use(globalLimiter);
 
-// Service URLs
-const SERVICES = {
-  auth: process.env.AUTH_SERVICE_URL || 'http://localhost:5001',
-  user: process.env.USER_SERVICE_URL || 'http://localhost:5002',
-  course: process.env.COURSE_SERVICE_URL || 'http://localhost:5003',
-  media: process.env.MEDIA_SERVICE_URL || 'http://localhost:5004',
-  payment: process.env.PAYMENT_SERVICE_URL || 'http://localhost:5005',
-  notification: process.env.NOTIFICATION_SERVICE_URL || 'http://localhost:5006',
-  review: process.env.REVIEW_SERVICE_URL || 'http://localhost:5007',
-  search: process.env.SEARCH_SERVICE_URL || 'http://localhost:5008',
-};
-
-// Proxy factory
-const proxy = (target, ws = false) => createProxyMiddleware({
-  target,
-  changeOrigin: true,
-  ws, // Enable WebSocket proxying if true
-  pathRewrite: (path, req) => req.originalUrl,
-  on: {
-    error: (err, req, res) => {
-      console.error(`Proxy error → ${target}: ${err.message}`);
-      // Send response only if res exists (not for WS)
-      if (res && res.writeHead) {
-        errorResponse(res, 503, 'Service temporarily unavailable');
-      }
-    },
-  },
+// ── Cloudinary Setup ──
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-// ── Public / Mixed Routes ──────────────────────────────────────
-app.use('/api/auth', authLimiter, proxy(SERVICES.auth));
-app.use('/api/search', proxy(SERVICES.search));  // Search public hai
-app.use('/api/courses', optionalAuth, proxy(SERVICES.course));  // Course listing public, but creation protected
-app.use('/api/reviews', optionalAuth, proxy(SERVICES.review));  // Reviews public, but adding protected
+// ── Socket.io Setup ──
+const io = new Server(httpServer, {
+  cors: { origin: process.env.CLIENT_URL || 'http://localhost:5173', credentials: true },
+});
 
-// Razorpay webhook - JWT nahi, signature verify hoga payment service mein
-app.use('/api/payments/webhook', express.raw({ type: 'application/json' }), proxy(SERVICES.payment));
+setMediaIo(io);
+setNotificationIo(io);
 
-// ── Protected Routes (JWT required) ───────────────────────────
-app.use('/api/users', verifyToken, proxy(SERVICES.user));
-app.use('/api/media', verifyToken, proxy(SERVICES.media));
-app.use('/api/payments', verifyToken, proxy(SERVICES.payment));
-app.use('/api/notifications', verifyToken, proxy(SERVICES.notification));
+io.on('connection', (socket) => {
+  socket.on('join', (userId) => socket.join(userId));
+  socket.on('disconnect', () => {});
+});
 
-// ── WebSockets (Socket.io) ────────────────────────────────────
-// Gateway ko httpServer ki zaroorat hoti hai WS handle karne ke liye,
-// par express router directly app.use('/socket.io', proxy(..., true)) bhi handle kar leta hai
-// http-proxy-middleware documentation ke hisaab se.
-app.use('/socket.io', proxy(SERVICES.notification, true));
+// ── Database Connection ──
+// Connect to a single database for the monolith
+mongoose.connect(`${process.env.MONGO_URI}/edustream_monolith`)
+  .then(() => console.log('✅ Monolith DB connected'))
+  .catch((err) => console.error('❌ DB Connection Error:', err));
 
-// ── Health Check ───────────────────────────────────────────────
+// ── Mount Routes ──
+app.use('/api/auth', authLimiter, authRoutes);
+app.use('/api/search', searchRoutes);
+app.use('/api/courses', optionalAuth, courseRoutes);
+app.use('/api/reviews', optionalAuth, reviewRoutes);
+
+app.use('/api/users', verifyToken, userRoutes);
+app.use('/api/media', verifyToken, mediaRoutes);
+app.use('/api/payments', verifyToken, paymentRoutes);
+app.use('/api/notifications', verifyToken, notificationRoutes);
+
+// Health check
 app.get('/health', (req, res) => res.json({
-  status: 'ok', service: 'API Gateway', timestamp: new Date(),
-  services: Object.keys(SERVICES),
+  status: 'ok', service: 'EduStream Monolith', timestamp: new Date(),
 }));
 
 app.use('*', (req, res) => errorResponse(res, 404, `Route ${req.originalUrl} not found`));
 
-app.listen(PORT, () => {
-  console.log(`🚀 API Gateway running on port ${PORT}`);
-  console.log(`📡 Routing to ${Object.keys(SERVICES).length} microservices`);
+app.use(errorHandler);
+
+httpServer.listen(PORT, () => {
+  console.log(`🚀 EduStream Monolith running on port ${PORT}`);
 });

@@ -5,6 +5,6 @@
   "type": "module",
   "scripts": {
     "postinstall": "npm install --prefix shared && npm install --prefix gateway && npm install --prefix services/auth-service && npm install --prefix services/user-service && npm install --prefix services/course-service && npm install --prefix services/media-service && npm install --prefix services/payment-service && npm install --prefix services/notification-service && npm install --prefix services/review-service && npm install --prefix services/search-service",
-    "start": "node start.js"
+    "start": "node gateway/src/index.js"
   }
 }
