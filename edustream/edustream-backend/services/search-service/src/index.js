@@ -27,21 +27,21 @@ const connectAndCreateModel = async () => {
 
   // Course model ka simplified version - sirf search ke liye
   const courseSchema = new mongoose.Schema({
-    title:         String,
-    description:   String,
-    category:      String,
-    level:         String,
-    price:         Number,
+    title: String,
+    description: String,
+    category: String,
+    level: String,
+    price: Number,
     discountPrice: Number,
-    tags:          [String],
-    rating:        Number,
+    tags: [String],
+    rating: Number,
     enrolledCount: Number,
-    status:        String,
-    instructor:    { id: mongoose.Schema.Types.ObjectId, name: String },
-    thumbnail:     { url: String },
+    status: String,
+    instructor: { id: mongoose.Schema.Types.ObjectId, name: String },
+    thumbnail: { url: String },
     totalLectures: Number,
     totalDuration: Number,
-    language:      String,
+    language: String,
   }, { timestamps: true });
 
   courseSchema.index({ title: 'text', description: 'text', tags: 'text' });
@@ -58,7 +58,7 @@ app.get('/api/search', async (req, res, next) => {
     // Full-text search
     if (q) filter.$text = { $search: q };
     if (category) filter.category = category;
-    if (level)    filter.level    = level;
+    if (level) filter.level = level;
     if (minPrice || maxPrice) {
       filter.price = {};
       if (minPrice) filter.price.$gte = Number(minPrice);
@@ -68,9 +68,9 @@ app.get('/api/search', async (req, res, next) => {
     // Sort options
     let sortObj = {};
     if (sort === 'relevance' && q) sortObj = { score: { $meta: 'textScore' } };
-    else if (sort === 'newest')    sortObj = { createdAt: -1 };
-    else if (sort === 'popular')   sortObj = { enrolledCount: -1 };
-    else if (sort === 'rating')    sortObj = { rating: -1 };
+    else if (sort === 'newest') sortObj = { createdAt: -1 };
+    else if (sort === 'popular') sortObj = { enrolledCount: -1 };
+    else if (sort === 'rating') sortObj = { rating: -1 };
     else if (sort === 'price-asc') sortObj = { price: 1 };
     else if (sort === 'price-desc') sortObj = { price: -1 };
 
@@ -103,7 +103,7 @@ app.post('/api/search/ai/chat', async (req, res, next) => {
     }
 
     const systemInstruction = "You are EduBot, an AI assistant for the 'EduStream' e-learning platform. Be helpful, concise, and friendly. Answer questions about courses, web development, coding, UI/UX, and platform features (like wishlist, dark mode, certificates). Do not answer completely unrelated questions. Keep responses under 4 sentences.";
-    
+
     // Format messages for Gemini REST API
     const contents = [
       { role: 'user', parts: [{ text: systemInstruction }] },
@@ -115,7 +115,7 @@ app.post('/api/search/ai/chat', async (req, res, next) => {
     ];
 
     const response = await axios.post(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
       { contents, generationConfig: { maxOutputTokens: 250, temperature: 0.7 } },
       { headers: { 'Content-Type': 'application/json' } }
     );
