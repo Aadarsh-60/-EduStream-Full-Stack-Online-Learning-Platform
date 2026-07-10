@@ -12,9 +12,12 @@ import courseRoutes from './routes/course.routes.js';
 const app = express();
 const PORT = process.env.COURSE_SERVICE_PORT || 5003;
 
+
+app.set('trust proxy', 1)
+
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key:    process.env.CLOUDINARY_API_KEY,
+  api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 

@@ -14,6 +14,10 @@ const app = express();
 const httpServer = createServer(app);
 const PORT = process.env.NOTIFICATION_SERVICE_PORT || 5006;
 
+
+
+app.set('trust proxy', 1)
+
 const io = new Server(httpServer, {
   cors: { origin: process.env.CLIENT_URL || 'http://localhost:5173', credentials: true },
 });
@@ -22,7 +26,7 @@ setIo(io);
 
 io.on('connection', (socket) => {
   socket.on('join', (userId) => socket.join(userId));
-  socket.on('disconnect', () => {});
+  socket.on('disconnect', () => { });
 });
 
 app.use(helmet());
@@ -37,12 +41,12 @@ import {
   markAsRead, markAllAsRead, getUnreadCount,
 } from './controllers/notification.controller.js';
 
-app.post('/api/notifications/internal/send',   sendNotification);
-app.get('/api/notifications',                  getMyNotifications);
-app.get('/api/notifications/unread-count',     getUnreadCount);
-app.put('/api/notifications/read-all',         markAllAsRead);
+app.post('/api/notifications/internal/send', sendNotification);
+app.get('/api/notifications', getMyNotifications);
+app.get('/api/notifications/unread-count', getUnreadCount);
+app.put('/api/notifications/read-all', markAllAsRead);
 app.put('/api/notifications/:notificationId/read', markAsRead);
-app.get('/api/notifications/health',           (req, res) => res.json({ status: 'ok' }));
+app.get('/api/notifications/health', (req, res) => res.json({ status: 'ok' }));
 
 app.use(errorHandler);
 

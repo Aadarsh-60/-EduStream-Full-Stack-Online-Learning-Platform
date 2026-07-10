@@ -11,6 +11,9 @@ import paymentRoutes from './routes/payment.routes.js';
 const app = express();
 const PORT = process.env.PAYMENT_SERVICE_PORT || 5005;
 
+
+app.set('trust proxy', 1)
+
 app.use(helmet());
 app.use(cors({ origin: process.env.CLIENT_URL || 'http://localhost:5173', credentials: true }));
 app.use(express.json());

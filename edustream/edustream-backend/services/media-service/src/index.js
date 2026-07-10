@@ -15,6 +15,9 @@ const app = express();
 const httpServer = createServer(app);
 const PORT = process.env.MEDIA_SERVICE_PORT || 5004;
 
+
+app.set('trust proxy', 1)
+
 // Socket.io setup - video upload progress ke liye
 const io = new Server(httpServer, {
   cors: { origin: process.env.CLIENT_URL || 'http://localhost:5173', credentials: true },
@@ -37,7 +40,7 @@ io.on('connection', (socket) => {
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key:    process.env.CLOUDINARY_API_KEY,
+  api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 

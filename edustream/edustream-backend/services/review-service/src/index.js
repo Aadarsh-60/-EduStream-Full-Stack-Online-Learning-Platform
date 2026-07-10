@@ -14,6 +14,9 @@ import { successResponse, HTTP_STATUS } from '../../../shared/utils/apiResponse.
 const app = express();
 const PORT = process.env.REVIEW_SERVICE_PORT || 5007;
 
+
+app.set('trust proxy', 1)
+
 app.use(helmet());
 app.use(cors({ origin: process.env.CLIENT_URL || 'http://localhost:5173', credentials: true }));
 app.use(express.json());
@@ -47,7 +50,7 @@ app.get('/api/reviews/:courseId', async (req, res, next) => {
 // ── Add Review ─────────────────────────────────────────────────
 app.post('/api/reviews', async (req, res, next) => {
   try {
-    const userId   = req.headers['x-user-id'];
+    const userId = req.headers['x-user-id'];
     const userName = req.headers['x-user-name'] || 'Student';
     const { courseId, rating, comment } = req.body;
 
@@ -65,7 +68,7 @@ app.post('/api/reviews', async (req, res, next) => {
       await axios.put(
         `${process.env.COURSE_SERVICE_URL}/api/courses/${courseId}/rating`,
         { rating: allReviews[0].avg, ratingCount: allReviews[0].count }
-      ).catch(() => {});
+      ).catch(() => { });
     }
 
     return successResponse(res, HTTP_STATUS.CREATED, 'Review added', review);

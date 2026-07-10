@@ -11,10 +11,13 @@ import userRoutes from './routes/user.routes.js';
 const app = express();
 const PORT = process.env.USER_SERVICE_PORT || 5002;
 
+
+app.set('trust proxy', 1)
+
 // Cloudinary setup
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key:    process.env.CLOUDINARY_API_KEY,
+  api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
