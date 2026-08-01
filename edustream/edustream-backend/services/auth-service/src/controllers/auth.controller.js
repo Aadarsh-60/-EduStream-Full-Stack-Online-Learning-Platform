@@ -1,5 +1,5 @@
 import User from '../models/User.js';
-import UserProfile from '../../user-service/src/models/UserProfile.js';
+import UserProfile from '../../../user-service/src/models/UserProfile.js';
 import {
   generateAccessToken,
   generateRefreshToken,
