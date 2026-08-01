@@ -5,6 +5,7 @@ import {
   register, verifyEmail, login, refreshAccessToken,
   logout, forgotPassword, resetPassword, getMe, contactAdmin
 } from '../controllers/auth.controller.js';
+import { verifyToken } from '../../../../shared/middlewares/auth.js';
 
 const router = express.Router();
 
@@ -12,10 +13,10 @@ router.post('/register', register);
 router.post('/verify-email', verifyEmail);
 router.post('/login', login);
 router.post('/refresh', refreshAccessToken);
-router.post('/logout', logout);
+router.post('/logout', verifyToken, logout);
 router.post('/forgot-password', forgotPassword);
 router.post('/reset-password', resetPassword);
-router.get('/me', getMe);
+router.get('/me', verifyToken, getMe);
 router.post('/contact', contactAdmin);
 
 // Google OAuth
