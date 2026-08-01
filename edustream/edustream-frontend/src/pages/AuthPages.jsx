@@ -36,7 +36,7 @@ function AuthInput({ icon: Icon, label, ...props }) {
 export function LoginPage() {
   const { login } = useAuth();
   const navigate   = useNavigate();
-  const [form, setForm]     = useState({ email: '', password: '' });
+  const [form, setForm]     = useState({ email: '', password: '', role: 'student' });
   const [loading, setLoading] = useState(false);
 
   const handle = async (e) => {
@@ -66,16 +66,35 @@ export function LoginPage() {
         
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, margin: '4px 0' }}>
           <div style={{ flex: 1, height: 1, background: 'var(--glass-border)' }} />
-          <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>or</span>
+          <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>or login with</span>
           <div style={{ flex: 1, height: 1, background: 'var(--glass-border)' }} />
         </div>
 
-        <a href="/api/auth/google" className="btn" style={{ 
+        <div>
+          <label className="input-label" style={{ fontSize: '0.75rem', marginBottom: 4 }}>Select role for new Google account:</label>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
+            {[['student','🎓 Student'],['instructor','🎤 Instructor']].map(([val, label]) => (
+              <label key={val} style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                padding: '8px', borderRadius: 8, cursor: 'pointer',
+                background: form.role === val ? 'rgba(108,99,255,0.15)' : 'var(--glass)',
+                border: `1px solid ${form.role === val ? 'var(--indigo)' : 'var(--glass-border)'}`,
+                color: form.role === val ? 'var(--indigo-light)' : 'var(--lavender)',
+                fontSize: '0.8rem', fontWeight: 500, transition: 'all 0.2s',
+              }}>
+                <input type="radio" name="login_role" value={val} checked={form.role === val} onChange={e => setForm(p => ({ ...p, role: e.target.value }))} style={{ display: 'none' }} />
+                {label}
+              </label>
+            ))}
+          </div>
+        </div>
+
+        <a href={`/api/auth/google?role=${form.role}`} className="btn" style={{ 
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, 
           background: '#fff', color: '#333', height: 48, width: '100%', borderRadius: 'var(--radius-sm)', transition: 'background 0.2s'
         }} onMouseEnter={e => e.currentTarget.style.background = '#f1f1f1'} onMouseLeave={e => e.currentTarget.style.background = '#fff'}>
           <GoogleIcon />
-          <span style={{ fontWeight: 600 }}>Continue with Google</span>
+          <span style={{ fontWeight: 600 }}>Continue with Google as {form.role === 'instructor' ? 'Instructor' : 'Student'}</span>
         </a>
 
         <p style={{ textAlign: 'center', fontSize: '0.85rem', marginTop: 8 }}>

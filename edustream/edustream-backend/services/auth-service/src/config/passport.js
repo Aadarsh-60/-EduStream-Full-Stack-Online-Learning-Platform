@@ -60,6 +60,18 @@ passport.use(
             user.isEmailVerified = true;
             await user.save({ validateBeforeSave: false });
           }
+
+          // Safety check: Ensure UserProfile exists (for users created during bug phase)
+          const profileExists = await UserProfile.findOne({ userId: user._id });
+          if (!profileExists) {
+            await UserProfile.create({
+              userId: user._id,
+              name: user.name,
+              email: user.email,
+              role: user.role,
+              avatar: { url: user.avatar, publicId: null }
+            });
+          }
         } else {
           // Naya user create karo
           user = await User.create({
