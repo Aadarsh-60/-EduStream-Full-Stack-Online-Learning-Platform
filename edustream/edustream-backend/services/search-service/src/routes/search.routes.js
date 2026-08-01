@@ -135,6 +135,118 @@ Each object must have this exact structure:
   }
 });
 
+// ── Helper for Gemini SSE Streaming ────────────────────────────
+const streamGeminiSSE = async (prompt, res, apiKey, temperature = 0.7) => {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders();
+
+  try {
+    const response = await axios.post(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse&key=${apiKey}`,
+      { contents: [{ role: 'user', parts: [{ text: prompt }] }], generationConfig: { temperature } },
+      { headers: { 'Content-Type': 'application/json' }, responseType: 'stream', timeout: 15000 }
+    );
+
+    response.data.on('data', (chunk) => {
+      // Chunk is a Buffer containing SSE data (data: {...}\n\n)
+      const lines = chunk.toString().split('\n');
+      for (const line of lines) {
+        if (line.startsWith('data: ') && line.trim() !== 'data: [DONE]') {
+          try {
+            const data = JSON.parse(line.substring(6));
+            const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (text) {
+              res.write(`data: ${JSON.stringify({ text })}\n\n`);
+            }
+          } catch (e) { /* Ignore partial JSON parse errors */ }
+        }
+      }
+    });
+
+    response.data.on('end', () => {
+      res.write('data: [DONE]\n\n');
+      res.end();
+    });
+
+  } catch (err) {
+    console.error('Gemini Stream Error:', err.message);
+    res.write(`data: ${JSON.stringify({ error: 'Failed to generate content' })}\n\n`);
+    res.end();
+  }
+};
+
+// ── AI Course Summarizer (Study Notes) - STREAMING ───────────
+router.post('/ai/generate-notes', async (req, res, next) => {
+  try {
+    const { courseId, topic } = req.body;
+    if (!courseId) return res.status(400).json({ message: 'Course ID is required' });
+
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) return res.status(500).json({ message: 'GEMINI_API_KEY is not configured' });
+
+    const course = await CourseModel.findById(courseId).select('title description learningOutcomes');
+    if (!course) return res.status(404).json({ message: 'Course not found' });
+
+    let prompt = '';
+    if (topic && topic.trim() !== '') {
+      prompt = `Act as an expert instructor. The student has requested specific study notes on the topic: "${topic.trim()}" within the context of the course titled "${course.title}".
+Course Description: ${course.description}
+
+Please provide detailed, well-structured, and highly effective study notes focused entirely on this topic. Format the response strictly in Markdown. Use clear headings, bullet points, and code snippets if applicable. Do NOT output anything other than the markdown text.`;
+    } else {
+      prompt = `Act as an expert instructor. Create highly effective study notes for a course titled "${course.title}".
+Description: ${course.description}
+Learning Outcomes: ${course.learningOutcomes.join(', ')}
+
+Format the response strictly in Markdown with these sections:
+1. **Course Overview**: A crisp 2-sentence summary.
+2. **Key Concepts**: Bullet points of main topics.
+3. **Important Takeaways**: Why this matters.
+Do NOT output anything other than the markdown text.`;
+    }
+
+    await streamGeminiSSE(prompt, res, apiKey, 0.5);
+  } catch (err) {
+    console.error('AI Notes Error:', err.message);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ── AI Personalized Roadmap - STREAMING ──────────────────────
+router.post('/ai/generate-roadmap', async (req, res, next) => {
+  try {
+    const { goal } = req.body;
+    if (!goal) return res.status(400).json({ message: 'Goal is required' });
+
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) return res.status(500).json({ message: 'GEMINI_API_KEY is not configured' });
+
+    const prompt = `Act as a career counselor and technical mentor. Create a learning roadmap for a student whose goal is: "${goal}".
+Format your response EXACTLY in this Markdown structure, using no other main headings:
+
+# Roadmap: Your Learning Path
+(A very short 1-2 sentence intro)
+
+## Step 1: [Title]
+⏱️ **Duration:** [Time]
+[Short concise description of what to do]
+> 💡 **Pro Tip:** [Actionable tip]
+
+## Step 2: [Title]
+⏱️ **Duration:** [Time]
+...
+
+Continue this for exactly 4 to 6 actionable milestones. Do not include summary or concluding paragraphs. Keep it clean and highly structured.`;
+
+    await streamGeminiSSE(prompt, res, apiKey, 0.7);
+  } catch (err) {
+    console.error('AI Roadmap Error:', err.message);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 // ── Get Categories ─────────────────────────────────────────────
 router.get('/categories', async (req, res, next) => {
   try {

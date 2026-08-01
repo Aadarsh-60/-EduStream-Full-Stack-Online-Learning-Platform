@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { Play, Clock, Users, Star, CheckCircle, Lock, ChevronDown, ChevronUp, ShoppingCart, BookOpen, Heart, Award, X } from 'lucide-react';
+import { Play, Clock, Users, Star, CheckCircle, Lock, ChevronDown, ChevronUp, ShoppingCart, BookOpen, Heart, Award, X, Sparkles, Loader2 } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
 import { courseAPI, reviewAPI, paymentAPI, userAPI, searchAPI } from '../services/api.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import toast from 'react-hot-toast';
@@ -28,6 +29,61 @@ export default function CourseDetailPage() {
   
   const [isQuizOpen, setIsQuizOpen] = useState(false);
   const [quizData, setQuizData] = useState([]);
+
+  const [generatingNotes, setGeneratingNotes] = useState(false);
+  const [aiNotes, setAiNotes] = useState(null);
+  const [isNotesModalOpen, setIsNotesModalOpen] = useState(false);
+  const [noteTopic, setNoteTopic] = useState('');
+
+  const openNotesModal = () => {
+    setIsNotesModalOpen(true);
+    setAiNotes(null);
+    setNoteTopic('');
+  };
+
+  const handleGenerateNotes = async (e) => {
+    if (e) e.preventDefault();
+    setGeneratingNotes(true);
+    setAiNotes('');
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/search/ai/generate-notes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(token && { Authorization: `Bearer ${token}` }) },
+        body: JSON.stringify({ courseId: course._id, topic: noteTopic })
+      });
+      if (!response.ok) throw new Error('Failed to fetch');
+
+      setGeneratingNotes(false); // Stop loading spinner, start typing
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split('\n');
+        
+        for (const line of lines) {
+          if (line.startsWith('data: ') && line.trim() !== 'data: [DONE]') {
+            try {
+              const data = JSON.parse(line.substring(6));
+              if (data.text) {
+                setAiNotes(prev => (prev || '') + data.text);
+              } else if (data.error) {
+                setAiNotes(`**Error:** ${data.error}. Please try again later.`);
+              }
+            } catch (e) { /* ignore chunk boundary parse errors */ }
+          }
+        }
+      }
+    } catch (e) {
+      toast.error('Failed to generate AI Notes');
+      setIsNotesModalOpen(false);
+    } finally {
+      setGeneratingNotes(false);
+    }
+  };
 
   const handleCompleteLecture = async () => {
     if (!enrolled) return;
@@ -196,7 +252,16 @@ export default function CourseDetailPage() {
             {/* What you'll learn */}
             {course.learningOutcomes?.length > 0 && (
               <div className="card" style={{ padding: 24, marginBottom: 24 }}>
-                <h3 style={{ marginBottom: 16 }}>What you'll learn</h3>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                  <h3 style={{ margin: 0 }}>What you'll learn</h3>
+                  <button 
+                    onClick={openNotesModal} 
+                    className="btn btn-sm" 
+                    style={{ background: 'linear-gradient(135deg, rgba(99,102,241,0.2), rgba(168,85,247,0.2))', border: '1px solid rgba(168,85,247,0.5)', color: '#c084fc', display: 'flex', alignItems: 'center', gap: 6 }}
+                  >
+                    <Sparkles size={14} /> AI Study Notes
+                  </button>
+                </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 10 }}>
                   {course.learningOutcomes.map((o, i) => (
                     <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', fontSize: '0.875rem', color: 'var(--lavender)' }}>
@@ -450,6 +515,56 @@ export default function CourseDetailPage() {
         quizData={quizData}
         onPass={handlePassQuiz}
       />
+
+      {/* AI Notes Modal */}
+      {isNotesModalOpen && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(10, 15, 30, 0.8)', backdropFilter: 'blur(8px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div style={{ background: 'var(--navy-800)', borderRadius: 20, overflow: 'hidden', width: '100%', maxWidth: 700, boxShadow: '0 25px 50px rgba(0,0,0,0.5)', display: 'flex', flexDirection: 'column', maxHeight: '85vh', border: '1px solid rgba(168,85,247,0.3)' }}>
+            <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'linear-gradient(135deg, rgba(99,102,241,0.1), rgba(168,85,247,0.1))' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <Sparkles size={20} color="#c084fc" />
+                <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#fff', margin: 0 }}>EduBot Study Notes</h2>
+              </div>
+              <button onClick={() => setIsNotesModalOpen(false)} className="btn btn-ghost" style={{ padding: 8 }}><X size={20} /></button>
+            </div>
+            
+            <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--border)', background: 'var(--navy-700)' }}>
+              <form onSubmit={handleGenerateNotes} style={{ display: 'flex', gap: 10 }}>
+                <input 
+                  type="text" 
+                  placeholder="Enter a specific topic (or leave blank for full course notes)..."
+                  className="input"
+                  style={{ flex: 1, background: 'var(--navy-900)', border: '1px solid var(--border)' }}
+                  value={noteTopic}
+                  onChange={(e) => setNoteTopic(e.target.value)}
+                  disabled={generatingNotes}
+                />
+                <button type="submit" className="btn btn-primary" disabled={generatingNotes} style={{ background: 'linear-gradient(135deg, rgba(99,102,241,0.8), rgba(168,85,247,0.8))', border: 'none', height: 'auto', padding: '10px 20px' }}>
+                   Generate
+                </button>
+              </form>
+            </div>
+
+            <div style={{ padding: 32, flex: 1, overflowY: 'auto' }} className="custom-scrollbar">
+              {!generatingNotes && aiNotes === null ? (
+                <div style={{ textAlign: 'center', color: 'var(--muted)', marginTop: 40 }}>
+                  <Sparkles size={48} style={{ opacity: 0.2, margin: '0 auto 16px', color: '#c084fc' }} />
+                  <p>What would you like to learn today?<br/>Enter a specific topic above or just click Generate for general course notes.</p>
+                </div>
+              ) : generatingNotes && !aiNotes ? (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '40px 0', color: 'var(--muted)' }}>
+                  <Loader2 size={40} color="#c084fc" className="spin" style={{ marginBottom: 16 }} />
+                  <p>EduBot is reading the course curriculum...</p>
+                </div>
+              ) : (
+                <div className="markdown-body" style={{ color: 'var(--lavender)', fontSize: '0.95rem', lineHeight: 1.7 }}>
+                  <ReactMarkdown>{aiNotes || ''}</ReactMarkdown>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

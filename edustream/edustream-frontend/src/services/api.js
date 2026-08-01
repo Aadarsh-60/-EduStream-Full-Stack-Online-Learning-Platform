@@ -85,6 +85,8 @@ export const searchAPI = {
   autocomplete: (q)      => api.get(`/search/autocomplete?q=${q}`),
   chat:         (msgs)   => api.post('/search/ai/chat', { messages: msgs }),
   generateQuiz: (courseId) => api.post('/search/ai/generate-quiz', { courseId }),
+  generateNotes: (courseId) => api.post('/search/ai/generate-notes', { courseId }),
+  generateRoadmap: (goal) => api.post('/search/ai/generate-roadmap', { goal }),
 };
 
 // ── Payments ──────────────────────────────────────────────────

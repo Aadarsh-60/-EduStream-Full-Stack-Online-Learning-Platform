@@ -63,8 +63,10 @@
 - **Razorpay Integration** for end-to-end secure course purchases
 - **Real-time Notifications** for enrollments and platform updates
 
-### 🤖 AI Chatbot (EduBot)
-- Powered by **Google Gemini API** to answer course and platform-related queries instantly.
+### 🤖 AI Integration (Powered by Google Gemini)
+- **EduBot Chatbot:** Floating AI assistant for instant course and platform queries via real-time Server-Sent Events (SSE) streaming.
+- **AI Study Notes:** Generates custom, topic-specific markdown study notes for any course.
+- **AI Quizzes:** Dynamically generates exams based on course curriculum to test knowledge.
 
 ---
 
@@ -85,6 +87,7 @@
 |---|---|
 | **Node.js 18+** | JavaScript runtime |
 | **Express.js 4** | Web application framework (Modular Monolith) |
+| **Server-Sent Events**| Real-time streaming for AI features |
 | **MongoDB + Mongoose** | NoSQL database & ODM |
 | **JWT** | Stateless authentication |
 | **Razorpay SDK** | Payment gateway integration |
@@ -275,7 +278,8 @@ After seeding the database, you can log in using the following test accounts:
 | Method | Endpoint | Access | Description |
 |---|---|---|---|
 | `GET` | `/search` | Public | Full-text search for courses |
-| `POST`| `/search/ai/chat` | Public | Interact with EduBot AI |
+| `POST`| `/search/ai/chat` | Public | Interact with EduBot AI via SSE |
+| `POST`| `/search/ai/generate-notes` | Public | Stream custom AI study notes |
 
 ---
 

@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { BookOpen, TrendingUp, Bell, Star, Plus, Users, DollarSign, Play, Clock, Shield, X, Mail, Award, Heart } from 'lucide-react';
+import { BookOpen, TrendingUp, Bell, Star, Plus, Users, DollarSign, Play, Clock, Shield, X, Mail, Award, Heart, Map, Loader2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
-import { userAPI, courseAPI, notificationAPI, authAPI } from '../services/api.js';
+import { userAPI, courseAPI, notificationAPI, authAPI, searchAPI } from '../services/api.js';
 import toast from 'react-hot-toast';
+import ReactMarkdown from 'react-markdown';
 import { UsersRoleChart, CoursesCategoryChart, InstructorEnrollmentChart } from '../components/dashboard/AnalyticsCharts.jsx';
 import CourseCard from '../components/course/CourseCard.jsx';
 
@@ -23,11 +24,61 @@ export default function DashboardPage() {
 
 // ── Student Dashboard ─────────────────────────────────────────
 function StudentDashboard({ user }) {
-  const [enrolled,       setEnrolled]       = useState([]);
-  const [notifications,  setNotifications]  = useState([]);
-  const [wishlist,       setWishlist]       = useState([]);
-  const [loading,        setLoading]        = useState(true);
+  const { profile } = useAuth();
+  const [enrolled, setEnrolled] = useState([]);
+  const [notifications, setNotifications] = useState([]);
+  const [wishlist, setWishlist] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [filterProgress, setFilterProgress] = useState(window.location.hash === '#notifications' ? 'notifications' : 'all');
+
+  const [roadmapGoal, setRoadmapGoal] = useState('');
+  const [roadmapData, setRoadmapData] = useState(null);
+  const [generatingRoadmap, setGeneratingRoadmap] = useState(false);
+
+  const handleGenerateRoadmap = async (e) => {
+    e.preventDefault();
+    if (!roadmapGoal.trim()) return toast.error('Please enter a goal first');
+    
+    setGeneratingRoadmap(true);
+    setRoadmapData(''); // We will stream string instead of parsing JSON
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/search/ai/generate-roadmap`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(token && { Authorization: `Bearer ${token}` }) },
+        body: JSON.stringify({ goal: roadmapGoal })
+      });
+
+      if (!response.ok) throw new Error('Failed to fetch');
+
+      setGeneratingRoadmap(false);
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split('\n');
+        
+        for (const line of lines) {
+          if (line.startsWith('data: ') && line.trim() !== 'data: [DONE]') {
+            try {
+              const data = JSON.parse(line.substring(6));
+              if (data.text) {
+                setRoadmapData(prev => (prev || '') + data.text);
+              }
+            } catch (err) { /* ignore chunk boundary parse errors */ }
+          }
+        }
+      }
+      toast.success('Your personalized roadmap is ready!');
+    } catch (err) {
+      toast.error(err.message || 'Failed to generate roadmap');
+      setGeneratingRoadmap(false);
+    }
+  };
 
   useEffect(() => {
     const handleHash = () => { if (window.location.hash === '#notifications') setFilterProgress('notifications'); };
@@ -48,14 +99,36 @@ function StudentDashboard({ user }) {
     ]).then(([e, n, p]) => {
       setEnrolled(e.data.data || []);
       setNotifications(n.data.data || []);
-      
-      const wIds = p.data.data?.wishlist || [];
-      if (wIds.length > 0) {
-        Promise.all(wIds.map(id => courseAPI.getCourse(id).catch(() => null)))
-          .then(res => setWishlist(res.map(r => r?.data?.data).filter(Boolean)));
-      }
-    }).catch(() => {}).finally(() => setLoading(false));
+      // Wishlist fetching is now handled by the other useEffect listening to profile
+    }).catch(() => { }).finally(() => setLoading(false));
   }, []);
+
+  // Synchronize local wishlist state with profile.wishlist context
+  useEffect(() => {
+    const wIds = profile?.wishlist || [];
+    if (wIds.length > 0) {
+      // Fetch only the missing courses to optimize network calls
+      const missingIds = wIds.filter(id => !wishlist.some(c => c._id === id));
+      if (missingIds.length > 0) {
+        Promise.all(missingIds.map(id => courseAPI.getOne(id).catch(() => null)))
+          .then(res => {
+            const newCourses = res.map(r => r?.data?.data).filter(Boolean);
+            setWishlist(prev => {
+              // Merge old courses with new ones, keeping only those in profile.wishlist
+              const allCourses = [...prev, ...newCourses];
+              return allCourses.filter((c, index, self) => 
+                wIds.includes(c._id) && index === self.findIndex(t => t._id === c._id)
+              );
+            });
+          });
+      } else {
+        // If no missing IDs, just filter the existing list
+        setWishlist(prev => prev.filter(c => wIds.includes(c._id)));
+      }
+    } else {
+      setWishlist([]);
+    }
+  }, [profile?.wishlist]);
 
   return (
     <>
@@ -70,11 +143,12 @@ function StudentDashboard({ user }) {
       {/* Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 16, marginBottom: 36 }}>
         {[
-          { id: 'all', icon: BookOpen, label: 'Enrolled',     value: enrolled.length, color: 'var(--indigo)' },
+          { id: 'all', icon: BookOpen, label: 'Enrolled', value: enrolled.length, color: 'var(--indigo)' },
           { id: 'in-progress', icon: TrendingUp, label: 'In Progress', value: enrolled.filter(e => e.progress < 100 && e.progress > 0).length, color: 'var(--gold)' },
-          { id: 'completed', icon: Star,      label: 'Completed',   value: enrolled.filter(e => e.progress === 100).length, color: 'var(--success)' },
-          { id: 'wishlist', icon: Heart,      label: 'Wishlist',    value: wishlist.length, color: '#EF4444' },
-          { id: 'notifications', icon: Bell,      label: 'Notifications', value: notifications.filter(n => !n.isRead).length, color: '#EC4899' },
+          { id: 'completed', icon: Star, label: 'Completed', value: enrolled.filter(e => e.progress === 100).length, color: 'var(--success)' },
+          { id: 'wishlist', icon: Heart, label: 'Wishlist', value: wishlist.length, color: '#EF4444' },
+          { id: 'notifications', icon: Bell, label: 'Notifications', value: notifications.filter(n => !n.isRead).length, color: '#EC4899' },
+          { id: 'ai-planner', icon: Map, label: 'Learning Roadmap', value: '✨', color: 'var(--indigo)' },
         ].map(({ id, icon: Icon, label, value, color }) => (
           <div key={label} className="card hoverable"
             onClick={() => setFilterProgress(id)}
@@ -99,7 +173,7 @@ function StudentDashboard({ user }) {
 
           {loading ? (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
-              {[1,2,3].map(i => <div key={i} className="skeleton" style={{ height: 100, borderRadius: 12 }} />)}
+              {[1, 2, 3].map(i => <div key={i} className="skeleton" style={{ height: 100, borderRadius: 12 }} />)}
             </div>
           ) : enrolled.length === 0 ? (
             <div className="card" style={{ padding: 40, textAlign: 'center' }}>
@@ -116,8 +190,8 @@ function StudentDashboard({ user }) {
               {enrolled
                 .filter(e => filterProgress === 'all' || (filterProgress === 'in-progress' ? e.progress < 100 && e.progress > 0 : e.progress === 100))
                 .map(enrollment => (
-                <EnrolledCourseRow key={enrollment.courseId} enrollment={enrollment} />
-              ))}
+                  <EnrolledCourseRow key={enrollment.courseId} enrollment={enrollment} />
+                ))}
             </div>
           )}
         </div>
@@ -133,7 +207,7 @@ function StudentDashboard({ user }) {
 
           {loading ? (
             <div className="grid-4">
-              {[1,2,3,4].map(i => <div key={i} className="skeleton" style={{ height: 200, borderRadius: 12 }} />)}
+              {[1, 2, 3, 4].map(i => <div key={i} className="skeleton" style={{ height: 200, borderRadius: 12 }} />)}
             </div>
           ) : wishlist.length === 0 ? (
             <div className="card" style={{ padding: 40, textAlign: 'center' }}>
@@ -156,11 +230,11 @@ function StudentDashboard({ user }) {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
             <h2 style={{ fontSize: '1.2rem' }}>{filterProgress === 'notifications' ? 'All Notifications' : 'Recent Notifications'}</h2>
             {notifications.some(n => !n.isRead) && (
-              <button 
+              <button
                 onClick={() => {
                   notificationAPI.markAllAsRead().then(() => {
-                    setNotifications(notifications.map(n => ({...n, isRead: true})));
-                  }).catch(()=>{});
+                    setNotifications(notifications.map(n => ({ ...n, isRead: true })));
+                  }).catch(() => { });
                 }}
                 className="btn btn-outline btn-sm"
               >
@@ -168,7 +242,7 @@ function StudentDashboard({ user }) {
               </button>
             )}
           </div>
-          
+
           {notifications.length === 0 ? (
             <div className="card" style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>
               <Bell size={40} style={{ margin: '0 auto 12px', opacity: 0.4 }} />
@@ -177,12 +251,12 @@ function StudentDashboard({ user }) {
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {notifications.slice(0, filterProgress === 'notifications' ? undefined : 5).map(n => (
-                <div key={n._id} className="card" 
+                <div key={n._id} className="card"
                   onClick={() => {
                     if (!n.isRead) {
                       notificationAPI.markAsRead(n._id).then(() => {
-                        setNotifications(notifications.map(item => item._id === n._id ? {...item, isRead: true} : item));
-                      }).catch(()=>{});
+                        setNotifications(notifications.map(item => item._id === n._id ? { ...item, isRead: true } : item));
+                      }).catch(() => { });
                     }
                   }}
                   style={{ padding: '14px 18px', display: 'flex', gap: 14, alignItems: 'flex-start', opacity: n.isRead ? 0.6 : 1, cursor: n.isRead ? 'default' : 'pointer', borderLeft: n.isRead ? 'none' : '3px solid var(--indigo)' }}
@@ -198,6 +272,41 @@ function StudentDashboard({ user }) {
           )}
         </div>
       )}
+
+      {/* AI Study Planner */}
+      {filterProgress === 'ai-planner' && (
+        <div style={{ marginBottom: 36 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+            <h2 style={{ fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: 10 }}><Map size={20} color="var(--indigo)" /> Learning Roadmap</h2>
+          </div>
+
+          <div className="card" style={{ padding: 24, marginBottom: 24, background: 'linear-gradient(135deg, rgba(99,102,241,0.05), rgba(0,0,0,0.2))' }}>
+            <p style={{ marginBottom: 16, color: 'var(--lavender)', fontSize: '1.1rem', fontWeight: 500 }}>What do you want to learn?</p>
+            <form onSubmit={handleGenerateRoadmap} style={{ display: 'flex', gap: 12 }}>
+              <input
+                type="text"
+                placeholder="e.g. I want to learn React.js and build modern UI interfaces..."
+                value={roadmapGoal}
+                onChange={e => setRoadmapGoal(e.target.value)}
+                className="input"
+                style={{ flex: 1 }}
+                required
+              />
+              <button type="submit" className="btn btn-primary" disabled={generatingRoadmap}>
+                {generatingRoadmap ? <Loader2 size={16} className="spin" /> : 'Generate Roadmap'}
+              </button>
+            </form>
+          </div>
+
+          {roadmapData && (
+            <div className="card" style={{ padding: '32px 40px', background: 'var(--navy-800)', border: '1px solid var(--border)' }}>
+              <div className="markdown-body" style={{ color: 'var(--lavender)', fontSize: '0.95rem', lineHeight: 1.7 }}>
+                <ReactMarkdown>{roadmapData}</ReactMarkdown>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </>
   );
 }
@@ -206,7 +315,7 @@ function EnrolledCourseRow({ enrollment }) {
   const [course, setCourse] = useState(null);
 
   useEffect(() => {
-    courseAPI.getOne(enrollment.courseId).then(res => setCourse(res.data.data)).catch(()=>{});
+    courseAPI.getOne(enrollment.courseId).then(res => setCourse(res.data.data)).catch(() => { });
   }, [enrollment.courseId]);
 
   return (
@@ -222,7 +331,7 @@ function EnrolledCourseRow({ enrollment }) {
             <Play size={24} color="#fff" />
           </div>
         )}
-        
+
         <div style={{ flex: 1, minWidth: 0 }}>
           <p style={{ fontSize: '1rem', color: 'var(--text-main)', fontWeight: 600, marginBottom: 10, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {course ? course.title : `Course ID: ${enrollment.courseId}`}
@@ -237,7 +346,7 @@ function EnrolledCourseRow({ enrollment }) {
         {enrollment.progress === 100 && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginLeft: 8 }}>
             <span className="badge badge-green">Completed</span>
-            <button 
+            <button
               onClick={(e) => {
                 e.preventDefault();
                 window.dispatchEvent(new CustomEvent('open-certificate', { detail: course }));
@@ -281,13 +390,13 @@ function InstructorDashboard({ user }) {
         setCourses(c.data.data || []);
         setNotifications(n.data.data || []);
       })
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => setLoading(false));
   }, []);
 
   const totalEnrolled = courses.reduce((a, c) => a + (c.enrolledCount || 0), 0);
   const totalEarnings = courses.reduce((a, c) => a + (c.price / 100) * (c.enrolledCount || 0), 0);
-  const avgRating     = courses.length ? (courses.reduce((a, c) => a + (c.rating || 0), 0) / courses.length).toFixed(1) : 0;
+  const avgRating = courses.length ? (courses.reduce((a, c) => a + (c.rating || 0), 0) / courses.length).toFixed(1) : 0;
 
   return (
     <>
@@ -304,11 +413,11 @@ function InstructorDashboard({ user }) {
       {/* Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 16, marginBottom: 36 }}>
         {[
-          { id: 'all', icon: BookOpen,   label: 'Total Courses',  value: courses.length, color: 'var(--indigo)' },
-          { id: 'students', icon: Users,      label: 'Total Students', value: totalEnrolled.toLocaleString(), color: 'var(--gold)' },
-          { id: 'rating', icon: Star,       label: 'Avg Rating',     value: avgRating, color: '#EC4899' },
-          { id: 'earnings', icon: DollarSign, label: 'Est. Earnings',  value: `₹${Math.round(totalEarnings).toLocaleString('en-IN')}`, color: 'var(--success)' },
-          { id: 'notifications', icon: Bell,  label: 'Notifications',  value: notifications.filter(n => !n.isRead).length, color: '#EC4899' },
+          { id: 'all', icon: BookOpen, label: 'Total Courses', value: courses.length, color: 'var(--indigo)' },
+          { id: 'students', icon: Users, label: 'Total Students', value: totalEnrolled.toLocaleString(), color: 'var(--gold)' },
+          { id: 'rating', icon: Star, label: 'Avg Rating', value: avgRating, color: '#EC4899' },
+          { id: 'earnings', icon: DollarSign, label: 'Est. Earnings', value: `₹${Math.round(totalEarnings).toLocaleString('en-IN')}`, color: 'var(--success)' },
+          { id: 'notifications', icon: Bell, label: 'Notifications', value: notifications.filter(n => !n.isRead).length, color: '#EC4899' },
         ].map(({ id, icon: Icon, label, value, color }) => (
           <div key={label} className={`card ${id !== 'earnings' ? 'hoverable' : ''}`}
             onClick={() => id !== 'earnings' && setActiveSort(id)}
@@ -336,11 +445,11 @@ function InstructorDashboard({ user }) {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
             <h2 style={{ fontSize: '1.2rem' }}>All Notifications</h2>
             {notifications.some(n => !n.isRead) && (
-              <button 
+              <button
                 onClick={() => {
                   notificationAPI.markAllAsRead().then(() => {
-                    setNotifications(notifications.map(n => ({...n, isRead: true})));
-                  }).catch(()=>{});
+                    setNotifications(notifications.map(n => ({ ...n, isRead: true })));
+                  }).catch(() => { });
                 }}
                 className="btn btn-outline btn-sm"
               >
@@ -348,7 +457,7 @@ function InstructorDashboard({ user }) {
               </button>
             )}
           </div>
-          
+
           {notifications.length === 0 ? (
             <div className="card" style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>
               <Bell size={40} style={{ margin: '0 auto 12px', opacity: 0.4 }} />
@@ -357,12 +466,12 @@ function InstructorDashboard({ user }) {
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {notifications.map(n => (
-                <div key={n._id} className="card" 
+                <div key={n._id} className="card"
                   onClick={() => {
                     if (!n.isRead) {
                       notificationAPI.markAsRead(n._id).then(() => {
-                        setNotifications(notifications.map(item => item._id === n._id ? {...item, isRead: true} : item));
-                      }).catch(()=>{});
+                        setNotifications(notifications.map(item => item._id === n._id ? { ...item, isRead: true } : item));
+                      }).catch(() => { });
                     }
                   }}
                   style={{ padding: '14px 18px', display: 'flex', gap: 14, alignItems: 'flex-start', opacity: n.isRead ? 0.6 : 1, cursor: n.isRead ? 'default' : 'pointer', borderLeft: n.isRead ? 'none' : '3px solid var(--indigo)' }}
@@ -381,61 +490,61 @@ function InstructorDashboard({ user }) {
 
       {/* My Courses */}
       {activeSort !== 'notifications' && (
-      <div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-          <h2 style={{ fontSize: '1.2rem' }}>My Courses</h2>
-        </div>
-        {loading ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {[1,2,3].map(i => <div key={i} className="skeleton" style={{ height: 80, borderRadius: 12 }} />)}
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+            <h2 style={{ fontSize: '1.2rem' }}>My Courses</h2>
           </div>
-        ) : courses.length === 0 ? (
-          <div className="card" style={{ padding: 40, textAlign: 'center' }}>
-            <Plus size={40} color="var(--indigo)" style={{ margin: '0 auto 12px', opacity: 0.4 }} />
-            <h3 style={{ fontSize: '1rem', marginBottom: 8 }}>No courses yet</h3>
-            <Link to="/create-course" className="btn btn-primary btn-sm" style={{ marginTop: 12 }}>Create First Course</Link>
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <div style={{ marginBottom: 4, fontSize: '0.9rem', color: 'var(--muted)' }}>
-              Showing {activeSort === 'all' ? 'All Courses' : activeSort === 'students' ? 'Courses Sorted by Students' : 'Courses Sorted by Rating'}
+          {loading ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {[1, 2, 3].map(i => <div key={i} className="skeleton" style={{ height: 80, borderRadius: 12 }} />)}
             </div>
-            {[...courses]
-              .sort((a, b) => {
-                if (activeSort === 'students') return (b.enrolledCount || 0) - (a.enrolledCount || 0);
-                if (activeSort === 'rating') return (b.rating || 0) - (a.rating || 0);
-                return 0; // Default order
-              })
-              .map(course => (
-              <div key={course._id} className="card" style={{ padding: '16px 20px', display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap', transition: 'transform 0.2s', cursor: 'pointer' }}
-                onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
-                onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
-              >
-                <div style={{ width: 44, height: 44, borderRadius: 10, background: 'var(--navy-500)', overflow: 'hidden', flexShrink: 0 }}>
-                  {course.thumbnail?.url
-                    ? <img src={course.thumbnail.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><BookOpen size={18} color="var(--muted)" /></div>
-                  }
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ fontSize: '0.9rem', fontWeight: 500, color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 4 }}>{course.title}</p>
-                  <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}><Users size={11} style={{ display: 'inline', verticalAlign: 'middle' }} /> {course.enrolledCount} students</span>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}><Star size={11} style={{ display: 'inline', verticalAlign: 'middle', color: 'var(--gold)' }} /> {course.rating || 0}</span>
-                  </div>
-                </div>
-                <span className={`badge ${course.status === 'published' ? 'badge-green' : 'badge-muted'}`} style={{ textTransform: 'capitalize' }}>
-                  {course.status}
-                </span>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <Link to={`/manage-course/${course._id}`} className="btn btn-primary btn-sm">Manage</Link>
-                  <Link to={`/courses/${course._id}`} className="btn btn-outline btn-sm">View</Link>
-                </div>
+          ) : courses.length === 0 ? (
+            <div className="card" style={{ padding: 40, textAlign: 'center' }}>
+              <Plus size={40} color="var(--indigo)" style={{ margin: '0 auto 12px', opacity: 0.4 }} />
+              <h3 style={{ fontSize: '1rem', marginBottom: 8 }}>No courses yet</h3>
+              <Link to="/create-course" className="btn btn-primary btn-sm" style={{ marginTop: 12 }}>Create First Course</Link>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ marginBottom: 4, fontSize: '0.9rem', color: 'var(--muted)' }}>
+                Showing {activeSort === 'all' ? 'All Courses' : activeSort === 'students' ? 'Courses Sorted by Students' : 'Courses Sorted by Rating'}
               </div>
-            ))}
-          </div>
-        )}
-      </div>
+              {[...courses]
+                .sort((a, b) => {
+                  if (activeSort === 'students') return (b.enrolledCount || 0) - (a.enrolledCount || 0);
+                  if (activeSort === 'rating') return (b.rating || 0) - (a.rating || 0);
+                  return 0; // Default order
+                })
+                .map(course => (
+                  <div key={course._id} className="card" style={{ padding: '16px 20px', display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap', transition: 'transform 0.2s', cursor: 'pointer' }}
+                    onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
+                    onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
+                  >
+                    <div style={{ width: 44, height: 44, borderRadius: 10, background: 'var(--navy-500)', overflow: 'hidden', flexShrink: 0 }}>
+                      {course.thumbnail?.url
+                        ? <img src={course.thumbnail.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><BookOpen size={18} color="var(--muted)" /></div>
+                      }
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontSize: '0.9rem', fontWeight: 500, color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 4 }}>{course.title}</p>
+                      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}><Users size={11} style={{ display: 'inline', verticalAlign: 'middle' }} /> {course.enrolledCount} students</span>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}><Star size={11} style={{ display: 'inline', verticalAlign: 'middle', color: 'var(--gold)' }} /> {course.rating || 0}</span>
+                      </div>
+                    </div>
+                    <span className={`badge ${course.status === 'published' ? 'badge-green' : 'badge-muted'}`} style={{ textTransform: 'capitalize' }}>
+                      {course.status}
+                    </span>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <Link to={`/manage-course/${course._id}`} className="btn btn-primary btn-sm">Manage</Link>
+                      <Link to={`/courses/${course._id}`} className="btn btn-outline btn-sm">View</Link>
+                    </div>
+                  </div>
+                ))}
+            </div>
+          )}
+        </div>
       )}
     </>
   );
@@ -451,7 +560,7 @@ function AdminDashboard({ user }) {
   const [filterRole, setFilterRole] = useState('all'); // 'all', 'student', 'instructor'
   const [showAddUser, setShowAddUser] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null); // For manage modal
-  
+
   // Add user form state
   const [newUser, setNewUser] = useState({ name: '', email: '', password: '', role: 'instructor' });
   const [addingUser, setAddingUser] = useState(false);
@@ -481,7 +590,7 @@ function AdminDashboard({ user }) {
       setUsersList(uRes.data.data.users || []);
       setCoursesList(cRes.data.data.courses || []);
       setNotifications(nRes.data.data || []);
-    }).catch(() => {})
+    }).catch(() => { })
       .finally(() => setLoading(false));
   };
 
@@ -519,13 +628,13 @@ function AdminDashboard({ user }) {
       {/* Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 16, marginBottom: 36 }}>
         {[
-          { id: 'all', icon: Users,      label: 'Total Users',     value: usersList.length, color: 'var(--indigo)', type: 'users' },
-          { id: 'student', icon: BookOpen,   label: 'Total Students',  value: totalStudents, color: 'var(--success)', type: 'users' },
-          { id: 'instructor', icon: Star,       label: 'Instructors',     value: totalInstructors, color: 'var(--gold)', type: 'users' },
-          { id: 'courses', icon: TrendingUp, label: 'Published Courses',value: coursesList.length, color: '#EC4899', type: 'courses' },
+          { id: 'all', icon: Users, label: 'Total Users', value: usersList.length, color: 'var(--indigo)', type: 'users' },
+          { id: 'student', icon: BookOpen, label: 'Total Students', value: totalStudents, color: 'var(--success)', type: 'users' },
+          { id: 'instructor', icon: Star, label: 'Instructors', value: totalInstructors, color: 'var(--gold)', type: 'users' },
+          { id: 'courses', icon: TrendingUp, label: 'Published Courses', value: coursesList.length, color: '#EC4899', type: 'courses' },
           { id: 'notifications', icon: Bell, label: 'Notifications', value: notifications.filter(n => !n.isRead).length, color: '#EC4899', type: 'notifications' }
         ].map(({ id, icon: Icon, label, value, color, type }) => (
-          <div key={label} className="card hoverable" 
+          <div key={label} className="card hoverable"
             onClick={() => {
               setActiveTab(type);
               if (type === 'users') setFilterRole(id);
@@ -564,8 +673,8 @@ function AdminDashboard({ user }) {
               {notifications.some(n => !n.isRead) && (
                 <button onClick={() => {
                   notificationAPI.markAllAsRead().then(() => {
-                    setNotifications(notifications.map(n => ({...n, isRead: true})));
-                  }).catch(()=>{});
+                    setNotifications(notifications.map(n => ({ ...n, isRead: true })));
+                  }).catch(() => { });
                 }} className="btn btn-outline btn-sm">Mark all as read</button>
               )}
             </div>
@@ -578,8 +687,8 @@ function AdminDashboard({ user }) {
               <div key={n._id} onClick={() => {
                 if (!n.isRead) {
                   notificationAPI.markAsRead(n._id).then(() => {
-                    setNotifications(notifications.map(item => item._id === n._id ? {...item, isRead: true} : item));
-                  }).catch(()=>{});
+                    setNotifications(notifications.map(item => item._id === n._id ? { ...item, isRead: true } : item));
+                  }).catch(() => { });
                 }
               }} style={{ padding: '14px 18px', display: 'flex', gap: 14, alignItems: 'flex-start', opacity: n.isRead ? 0.6 : 1, cursor: n.isRead ? 'default' : 'pointer', background: 'var(--glass)', borderRadius: 12, border: '1px solid var(--border)' }}>
                 <div style={{ width: 8, height: 8, borderRadius: '50%', background: n.isRead ? 'var(--muted)' : 'var(--indigo)', marginTop: 6, flexShrink: 0 }} />
@@ -680,7 +789,7 @@ function AdminDashboard({ user }) {
               <h2 style={{ fontSize: '1.4rem' }}>Add New User</h2>
               <button onClick={() => setShowAddUser(false)} style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer' }}><X /></button>
             </div>
-            
+
             <form onSubmit={handleAddUser} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <div>
                 <label style={{ display: 'block', fontSize: '0.9rem', marginBottom: 8 }}>Role</label>
@@ -702,7 +811,7 @@ function AdminDashboard({ user }) {
                 <label style={{ display: 'block', fontSize: '0.9rem', marginBottom: 8 }}>Password</label>
                 <input type="password" className="input" required value={newUser.password} onChange={e => setNewUser({ ...newUser, password: e.target.value })} placeholder="••••••••" style={{ width: '100%' }} />
               </div>
-              
+
               <button type="submit" disabled={addingUser} className="btn btn-primary" style={{ marginTop: 8, height: 48 }}>
                 {addingUser ? 'Creating...' : 'Create User'}
               </button>
@@ -719,7 +828,7 @@ function AdminDashboard({ user }) {
               <h2 style={{ fontSize: '1.4rem' }}>Manage User</h2>
               <button onClick={() => setSelectedUser(null)} style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer' }}><X /></button>
             </div>
-            
+
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 8 }}>
                 <div style={{ width: 60, height: 60, borderRadius: '50%', background: 'var(--navy-600)', overflow: 'hidden' }}>
