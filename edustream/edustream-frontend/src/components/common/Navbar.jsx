@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Search, Bell, ChevronDown, LogOut, User, BookOpen, LayoutDashboard, Menu, X, Sun, Moon } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext.jsx';
+import { notificationAPI } from '../../services/api.js';
 import toast from 'react-hot-toast';
 
 export default function Navbar() {
@@ -13,6 +14,15 @@ export default function Navbar() {
   const [dropOpen, setDropOpen]     = useState(false);
   const [searchVal, setSearchVal]   = useState('');
   const [theme, setTheme]           = useState(localStorage.getItem('theme') || 'dark');
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    if (user) {
+      notificationAPI.getUnread().then(({ data }) => setUnreadCount(data.data?.count || 0)).catch(() => {});
+    } else {
+      setUnreadCount(0);
+    }
+  }, [user, location.pathname]); // Refresh on navigation
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
@@ -60,7 +70,7 @@ export default function Navbar() {
           }}>
             <BookOpen size={16} color="#fff" />
           </div>
-          <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '1.1rem', color: '#fff' }}>
+          <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '1.1rem', color: 'var(--text-main)' }}>
             Edu<span style={{ color: 'var(--indigo-light)' }}>Stream</span>
           </span>
         </Link>
@@ -70,7 +80,7 @@ export default function Navbar() {
           {[['/', 'Home'], ['/courses', 'Courses']].map(([path, label]) => (
             <Link key={path} to={path} style={{
               padding: '6px 14px', borderRadius: 8, fontSize: '0.875rem', fontWeight: 500,
-              color: isActive(path) ? '#fff' : 'var(--muted)',
+              color: isActive(path) ? 'var(--text-main)' : 'var(--muted)',
               background: isActive(path) ? 'rgba(108,99,255,0.15)' : 'transparent',
               transition: 'all 0.2s',
             }}>{label}</Link>
@@ -106,14 +116,16 @@ export default function Navbar() {
           {user ? (
             <>
               {/* Notifications */}
-              <button className="btn btn-ghost btn-sm" style={{ padding: 8, position: 'relative' }}>
+              <Link to="/dashboard#notifications" onClick={() => window.dispatchEvent(new Event('open-notifications'))} className="btn btn-ghost btn-sm" style={{ padding: 8, position: 'relative' }}>
                 <Bell size={18} />
-                <span style={{
-                  position: 'absolute', top: 4, right: 4, width: 8, height: 8,
-                  background: 'var(--gold)', borderRadius: '50%',
-                  border: '2px solid var(--navy)',
-                }} />
-              </button>
+                {unreadCount > 0 && (
+                  <span style={{
+                    position: 'absolute', top: 4, right: 4, width: 8, height: 8,
+                    background: 'var(--gold)', borderRadius: '50%',
+                    border: '2px solid var(--navy)',
+                  }} />
+                )}
+              </Link>
 
               {/* Dashboard */}
               <Link to="/dashboard" className="btn btn-outline btn-sm desktop-only">
@@ -124,7 +136,7 @@ export default function Navbar() {
               <div style={{ position: 'relative' }}>
                 <button
                   onClick={() => setDropOpen(!dropOpen)}
-                  style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--glass)', border: '1px solid var(--glass-border)', borderRadius: 10, padding: '6px 12px', cursor: 'pointer', color: '#fff' }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--glass)', border: '1px solid var(--glass-border)', borderRadius: 10, padding: '6px 12px', cursor: 'pointer', color: 'var(--text-main)' }}
                 >
                   <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'linear-gradient(135deg, var(--indigo), var(--indigo-dark))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 600 }}>
                     {user.name?.[0]?.toUpperCase()}

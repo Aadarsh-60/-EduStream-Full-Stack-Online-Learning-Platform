@@ -11,11 +11,12 @@ const getUserName = (req) => req.headers['x-user-name'] || 'Instructor';
 // ── Get All Courses (with filters) ────────────────────────────
 export const getAllCourses = async (req, res, next) => {
   try {
-    const { category, level, minPrice, maxPrice, page = 1, limit = 12 } = req.query;
+    const { category, level, minPrice, maxPrice, instructorId, page = 1, limit = 12 } = req.query;
 
     const filter = { status: 'published' };
     if (category) filter.category = category;
     if (level)    filter.level    = level;
+    if (instructorId) filter['instructor.id'] = instructorId;
     if (minPrice || maxPrice) {
       filter.price = {};
       if (minPrice) filter.price.$gte = Number(minPrice);

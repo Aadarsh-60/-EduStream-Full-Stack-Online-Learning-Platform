@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { BookOpen, TrendingUp, Bell, Star, Plus, Users, DollarSign, Play, Clock, Shield, X, Mail, Award } from 'lucide-react';
+import { BookOpen, TrendingUp, Bell, Star, Plus, Users, DollarSign, Play, Clock, Shield, X, Mail, Award, Heart } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { userAPI, courseAPI, notificationAPI, authAPI } from '../services/api.js';
 import toast from 'react-hot-toast';
 import { UsersRoleChart, CoursesCategoryChart, InstructorEnrollmentChart } from '../components/dashboard/AnalyticsCharts.jsx';
+import CourseCard from '../components/course/CourseCard.jsx';
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -24,16 +25,35 @@ export default function DashboardPage() {
 function StudentDashboard({ user }) {
   const [enrolled,       setEnrolled]       = useState([]);
   const [notifications,  setNotifications]  = useState([]);
+  const [wishlist,       setWishlist]       = useState([]);
   const [loading,        setLoading]        = useState(true);
-  const [filterProgress, setFilterProgress] = useState('all'); // all, in-progress, completed, notifications
+  const [filterProgress, setFilterProgress] = useState(window.location.hash === '#notifications' ? 'notifications' : 'all');
+
+  useEffect(() => {
+    const handleHash = () => { if (window.location.hash === '#notifications') setFilterProgress('notifications'); };
+    const handleEvent = () => setFilterProgress('notifications');
+    window.addEventListener('hashchange', handleHash);
+    window.addEventListener('open-notifications', handleEvent);
+    return () => {
+      window.removeEventListener('hashchange', handleHash);
+      window.removeEventListener('open-notifications', handleEvent);
+    };
+  }, []);
 
   useEffect(() => {
     Promise.all([
       userAPI.getEnrolled(),
       notificationAPI.getAll(),
-    ]).then(([e, n]) => {
+      userAPI.getMyProfile(),
+    ]).then(([e, n, p]) => {
       setEnrolled(e.data.data || []);
       setNotifications(n.data.data || []);
+      
+      const wIds = p.data.data?.wishlist || [];
+      if (wIds.length > 0) {
+        Promise.all(wIds.map(id => courseAPI.getCourse(id).catch(() => null)))
+          .then(res => setWishlist(res.map(r => r?.data?.data).filter(Boolean)));
+      }
     }).catch(() => {}).finally(() => setLoading(false));
   }, []);
 
@@ -53,6 +73,7 @@ function StudentDashboard({ user }) {
           { id: 'all', icon: BookOpen, label: 'Enrolled',     value: enrolled.length, color: 'var(--indigo)' },
           { id: 'in-progress', icon: TrendingUp, label: 'In Progress', value: enrolled.filter(e => e.progress < 100 && e.progress > 0).length, color: 'var(--gold)' },
           { id: 'completed', icon: Star,      label: 'Completed',   value: enrolled.filter(e => e.progress === 100).length, color: 'var(--success)' },
+          { id: 'wishlist', icon: Heart,      label: 'Wishlist',    value: wishlist.length, color: '#EF4444' },
           { id: 'notifications', icon: Bell,      label: 'Notifications', value: notifications.filter(n => !n.isRead).length, color: '#EC4899' },
         ].map(({ id, icon: Icon, label, value, color }) => (
           <div key={label} className="card hoverable"
@@ -63,13 +84,13 @@ function StudentDashboard({ user }) {
               <p style={{ fontSize: '0.8rem', fontWeight: 500 }}>{label}</p>
               <Icon size={18} color={color} />
             </div>
-            <div style={{ fontFamily: 'var(--font-display)', fontSize: '2rem', fontWeight: 800, color: '#fff' }}>{value}</div>
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: '2rem', fontWeight: 800, color: 'var(--text-main)' }}>{value}</div>
           </div>
         ))}
       </div>
 
       {/* Enrolled Courses */}
-      {filterProgress !== 'notifications' && (
+      {(filterProgress === 'all' || filterProgress === 'in-progress' || filterProgress === 'completed') && (
         <div style={{ marginBottom: 36 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
             <h2 style={{ fontSize: '1.2rem' }}>My Courses</h2>
@@ -97,6 +118,33 @@ function StudentDashboard({ user }) {
                 .map(enrollment => (
                 <EnrolledCourseRow key={enrollment.courseId} enrollment={enrollment} />
               ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Wishlist Courses */}
+      {filterProgress === 'wishlist' && (
+        <div style={{ marginBottom: 36 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+            <h2 style={{ fontSize: '1.2rem' }}>My Wishlist</h2>
+            <Link to="/courses" className="btn btn-outline btn-sm"><Plus size={14} /> Browse More</Link>
+          </div>
+
+          {loading ? (
+            <div className="grid-4">
+              {[1,2,3,4].map(i => <div key={i} className="skeleton" style={{ height: 200, borderRadius: 12 }} />)}
+            </div>
+          ) : wishlist.length === 0 ? (
+            <div className="card" style={{ padding: 40, textAlign: 'center' }}>
+              <Heart size={40} color="#EF4444" style={{ margin: '0 auto 12px', opacity: 0.4 }} />
+              <h3 style={{ fontSize: '1rem', marginBottom: 8 }}>Your wishlist is empty</h3>
+              <p style={{ fontSize: '0.875rem', marginBottom: 20 }}>Explore courses and add them to your wishlist</p>
+              <Link to="/courses" className="btn btn-primary btn-sm">Browse Courses</Link>
+            </div>
+          ) : (
+            <div className="grid-4">
+              {wishlist.map(c => <CourseCard key={c._id} course={c} />)}
             </div>
           )}
         </div>
@@ -141,7 +189,7 @@ function StudentDashboard({ user }) {
                 >
                   <div style={{ width: 8, height: 8, borderRadius: '50%', background: n.isRead ? 'var(--muted)' : 'var(--indigo)', marginTop: 6, flexShrink: 0 }} />
                   <div style={{ flex: 1 }}>
-                    <p style={{ fontSize: '0.875rem', color: '#fff', marginBottom: 3 }}>{n.message}</p>
+                    <p style={{ fontSize: '0.875rem', color: 'var(--text-main)', marginBottom: 3 }}>{n.message}</p>
                     <p style={{ fontSize: '0.75rem' }}>{new Date(n.createdAt).toLocaleDateString('en-IN')}</p>
                   </div>
                 </div>
@@ -176,7 +224,7 @@ function EnrolledCourseRow({ enrollment }) {
         )}
         
         <div style={{ flex: 1, minWidth: 0 }}>
-          <p style={{ fontSize: '1rem', color: '#fff', fontWeight: 600, marginBottom: 10, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <p style={{ fontSize: '1rem', color: 'var(--text-main)', fontWeight: 600, marginBottom: 10, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {course ? course.title : `Course ID: ${enrollment.courseId}`}
           </p>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -209,12 +257,30 @@ function EnrolledCourseRow({ enrollment }) {
 // ── Instructor Dashboard ──────────────────────────────────────
 function InstructorDashboard({ user }) {
   const [courses, setCourses] = useState([]);
+  const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeSort, setActiveSort] = useState('all'); // 'all', 'students', 'rating'
+  const [activeSort, setActiveSort] = useState(window.location.hash === '#notifications' ? 'notifications' : 'all'); // 'all', 'students', 'rating', 'notifications'
 
   useEffect(() => {
-    courseAPI.getMine()
-      .then(({ data }) => setCourses(data.data || []))
+    const handleHash = () => { if (window.location.hash === '#notifications') setActiveSort('notifications'); };
+    const handleEvent = () => setActiveSort('notifications');
+    window.addEventListener('hashchange', handleHash);
+    window.addEventListener('open-notifications', handleEvent);
+    return () => {
+      window.removeEventListener('hashchange', handleHash);
+      window.removeEventListener('open-notifications', handleEvent);
+    };
+  }, []);
+
+  useEffect(() => {
+    Promise.all([
+      courseAPI.getMine(),
+      notificationAPI.getAll()
+    ])
+      .then(([c, n]) => {
+        setCourses(c.data.data || []);
+        setNotifications(n.data.data || []);
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
@@ -242,6 +308,7 @@ function InstructorDashboard({ user }) {
           { id: 'students', icon: Users,      label: 'Total Students', value: totalEnrolled.toLocaleString(), color: 'var(--gold)' },
           { id: 'rating', icon: Star,       label: 'Avg Rating',     value: avgRating, color: '#EC4899' },
           { id: 'earnings', icon: DollarSign, label: 'Est. Earnings',  value: `₹${Math.round(totalEarnings).toLocaleString('en-IN')}`, color: 'var(--success)' },
+          { id: 'notifications', icon: Bell,  label: 'Notifications',  value: notifications.filter(n => !n.isRead).length, color: '#EC4899' },
         ].map(({ id, icon: Icon, label, value, color }) => (
           <div key={label} className={`card ${id !== 'earnings' ? 'hoverable' : ''}`}
             onClick={() => id !== 'earnings' && setActiveSort(id)}
@@ -251,17 +318,69 @@ function InstructorDashboard({ user }) {
               <p style={{ fontSize: '0.8rem', fontWeight: 500 }}>{label}</p>
               <Icon size={18} color={color} />
             </div>
-            <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.8rem', fontWeight: 800, color: '#fff' }}>{value}</div>
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.8rem', fontWeight: 800, color: 'var(--text-main)' }}>{value}</div>
           </div>
         ))}
       </div>
 
       {/* Analytics Chart */}
-      <div style={{ marginBottom: 36 }}>
-        <InstructorEnrollmentChart courses={courses} />
-      </div>
+      {activeSort !== 'notifications' && (
+        <div style={{ marginBottom: 36 }}>
+          <InstructorEnrollmentChart courses={courses} />
+        </div>
+      )}
+
+      {/* Notifications */}
+      {activeSort === 'notifications' && (
+        <div id="notifications-section" style={{ marginBottom: 36 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+            <h2 style={{ fontSize: '1.2rem' }}>All Notifications</h2>
+            {notifications.some(n => !n.isRead) && (
+              <button 
+                onClick={() => {
+                  notificationAPI.markAllAsRead().then(() => {
+                    setNotifications(notifications.map(n => ({...n, isRead: true})));
+                  }).catch(()=>{});
+                }}
+                className="btn btn-outline btn-sm"
+              >
+                Mark all as read
+              </button>
+            )}
+          </div>
+          
+          {notifications.length === 0 ? (
+            <div className="card" style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>
+              <Bell size={40} style={{ margin: '0 auto 12px', opacity: 0.4 }} />
+              <p>You have no notifications right now.</p>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {notifications.map(n => (
+                <div key={n._id} className="card" 
+                  onClick={() => {
+                    if (!n.isRead) {
+                      notificationAPI.markAsRead(n._id).then(() => {
+                        setNotifications(notifications.map(item => item._id === n._id ? {...item, isRead: true} : item));
+                      }).catch(()=>{});
+                    }
+                  }}
+                  style={{ padding: '14px 18px', display: 'flex', gap: 14, alignItems: 'flex-start', opacity: n.isRead ? 0.6 : 1, cursor: n.isRead ? 'default' : 'pointer', borderLeft: n.isRead ? 'none' : '3px solid var(--indigo)' }}
+                >
+                  <div style={{ width: 8, height: 8, borderRadius: '50%', background: n.isRead ? 'var(--muted)' : 'var(--indigo)', marginTop: 6, flexShrink: 0 }} />
+                  <div style={{ flex: 1 }}>
+                    <p style={{ fontSize: '0.875rem', color: 'var(--text-main)', marginBottom: 3 }}>{n.message}</p>
+                    <p style={{ fontSize: '0.75rem' }}>{new Date(n.createdAt).toLocaleDateString('en-IN')}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* My Courses */}
+      {activeSort !== 'notifications' && (
       <div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
           <h2 style={{ fontSize: '1.2rem' }}>My Courses</h2>
@@ -299,7 +418,7 @@ function InstructorDashboard({ user }) {
                   }
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ fontSize: '0.9rem', fontWeight: 500, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 4 }}>{course.title}</p>
+                  <p style={{ fontSize: '0.9rem', fontWeight: 500, color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 4 }}>{course.title}</p>
                   <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                     <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}><Users size={11} style={{ display: 'inline', verticalAlign: 'middle' }} /> {course.enrolledCount} students</span>
                     <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}><Star size={11} style={{ display: 'inline', verticalAlign: 'middle', color: 'var(--gold)' }} /> {course.rating || 0}</span>
@@ -317,6 +436,7 @@ function InstructorDashboard({ user }) {
           </div>
         )}
       </div>
+      )}
     </>
   );
 }
@@ -325,8 +445,9 @@ function InstructorDashboard({ user }) {
 function AdminDashboard({ user }) {
   const [usersList, setUsersList] = useState([]);
   const [coursesList, setCoursesList] = useState([]);
+  const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('users'); // 'users' or 'courses'
+  const [activeTab, setActiveTab] = useState(window.location.hash === '#notifications' ? 'notifications' : 'users'); // 'users', 'courses', 'notifications'
   const [filterRole, setFilterRole] = useState('all'); // 'all', 'student', 'instructor'
   const [showAddUser, setShowAddUser] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null); // For manage modal
@@ -336,6 +457,17 @@ function AdminDashboard({ user }) {
   const [addingUser, setAddingUser] = useState(false);
 
   useEffect(() => {
+    const handleHash = () => { if (window.location.hash === '#notifications') setActiveTab('notifications'); };
+    const handleEvent = () => setActiveTab('notifications');
+    window.addEventListener('hashchange', handleHash);
+    window.addEventListener('open-notifications', handleEvent);
+    return () => {
+      window.removeEventListener('hashchange', handleHash);
+      window.removeEventListener('open-notifications', handleEvent);
+    };
+  }, []);
+
+  useEffect(() => {
     fetchAdminData();
   }, []);
 
@@ -343,10 +475,12 @@ function AdminDashboard({ user }) {
     setLoading(true);
     Promise.all([
       userAPI.getAllUsers({ limit: 100 }), // Using the existing userAPI route
-      courseAPI.getAll({ limit: 100 })
-    ]).then(([uRes, cRes]) => {
+      courseAPI.getAll({ limit: 100 }),
+      notificationAPI.getAll()
+    ]).then(([uRes, cRes, nRes]) => {
       setUsersList(uRes.data.data.users || []);
       setCoursesList(cRes.data.data.courses || []);
+      setNotifications(nRes.data.data || []);
     }).catch(() => {})
       .finally(() => setLoading(false));
   };
@@ -389,19 +523,20 @@ function AdminDashboard({ user }) {
           { id: 'student', icon: BookOpen,   label: 'Total Students',  value: totalStudents, color: 'var(--success)', type: 'users' },
           { id: 'instructor', icon: Star,       label: 'Instructors',     value: totalInstructors, color: 'var(--gold)', type: 'users' },
           { id: 'courses', icon: TrendingUp, label: 'Published Courses',value: coursesList.length, color: '#EC4899', type: 'courses' },
+          { id: 'notifications', icon: Bell, label: 'Notifications', value: notifications.filter(n => !n.isRead).length, color: '#EC4899', type: 'notifications' }
         ].map(({ id, icon: Icon, label, value, color, type }) => (
           <div key={label} className="card hoverable" 
             onClick={() => {
               setActiveTab(type);
               if (type === 'users') setFilterRole(id);
             }}
-            style={{ padding: 20, cursor: 'pointer', border: (activeTab === 'users' && filterRole === id) || (activeTab === 'courses' && id === 'courses') ? `1px solid ${color}` : '1px solid var(--glass-border)' }}
+            style={{ padding: 20, cursor: 'pointer', border: (activeTab === 'users' && filterRole === id) || (activeTab === 'courses' && id === 'courses') || (activeTab === 'notifications' && id === 'notifications') ? `1px solid ${color}` : '1px solid var(--glass-border)' }}
           >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
               <p style={{ fontSize: '0.8rem', fontWeight: 500 }}>{label}</p>
               <Icon size={18} color={color} />
             </div>
-            <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.8rem', fontWeight: 800, color: '#fff' }}>{loading ? '-' : value}</div>
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.8rem', fontWeight: 800, color: 'var(--text-main)' }}>{loading ? '-' : value}</div>
           </div>
         ))}
       </div>
@@ -422,6 +557,39 @@ function AdminDashboard({ user }) {
       <div className="card" style={{ padding: 24, minHeight: 400 }}>
         {loading ? (
           <div style={{ textAlign: 'center', padding: 40, color: 'var(--muted)' }}>Loading admin data...</div>
+        ) : activeTab === 'notifications' ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <h2 style={{ fontSize: '1.2rem' }}>All Notifications</h2>
+              {notifications.some(n => !n.isRead) && (
+                <button onClick={() => {
+                  notificationAPI.markAllAsRead().then(() => {
+                    setNotifications(notifications.map(n => ({...n, isRead: true})));
+                  }).catch(()=>{});
+                }} className="btn btn-outline btn-sm">Mark all as read</button>
+              )}
+            </div>
+            {notifications.length === 0 ? (
+              <div style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>
+                <Bell size={40} style={{ margin: '0 auto 12px', opacity: 0.4 }} />
+                <p>You have no notifications right now.</p>
+              </div>
+            ) : notifications.map(n => (
+              <div key={n._id} onClick={() => {
+                if (!n.isRead) {
+                  notificationAPI.markAsRead(n._id).then(() => {
+                    setNotifications(notifications.map(item => item._id === n._id ? {...item, isRead: true} : item));
+                  }).catch(()=>{});
+                }
+              }} style={{ padding: '14px 18px', display: 'flex', gap: 14, alignItems: 'flex-start', opacity: n.isRead ? 0.6 : 1, cursor: n.isRead ? 'default' : 'pointer', background: 'var(--glass)', borderRadius: 12, border: '1px solid var(--border)' }}>
+                <div style={{ width: 8, height: 8, borderRadius: '50%', background: n.isRead ? 'var(--muted)' : 'var(--indigo)', marginTop: 6, flexShrink: 0 }} />
+                <div style={{ flex: 1 }}>
+                  <p style={{ fontSize: '0.875rem', color: 'var(--text-main)', marginBottom: 3 }}>{n.message}</p>
+                  <p style={{ fontSize: '0.75rem' }}>{new Date(n.createdAt).toLocaleDateString('en-IN')}</p>
+                </div>
+              </div>
+            ))}
+          </div>
         ) : activeTab === 'users' ? (
           <div style={{ overflowX: 'auto' }}>
             <div style={{ marginBottom: 16, fontSize: '0.9rem', color: 'var(--muted)' }}>
@@ -567,8 +735,8 @@ function AdminDashboard({ user }) {
               </div>
 
               <div style={{ padding: '16px', background: 'rgba(255,255,255,0.03)', borderRadius: 12, border: '1px solid var(--border)' }}>
-                <p style={{ fontSize: '0.85rem', color: 'var(--muted)', marginBottom: 12 }}>User ID: <span style={{ fontFamily: 'monospace', color: '#fff' }}>{selectedUser.userId || selectedUser._id}</span></p>
-                <p style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>Joined: <span style={{ color: '#fff' }}>{new Date(selectedUser.createdAt).toLocaleDateString()}</span></p>
+                <p style={{ fontSize: '0.85rem', color: 'var(--muted)', marginBottom: 12 }}>User ID: <span style={{ fontFamily: 'monospace', color: 'var(--text-main)' }}>{selectedUser.userId || selectedUser._id}</span></p>
+                <p style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>Joined: <span style={{ color: 'var(--text-main)' }}>{new Date(selectedUser.createdAt).toLocaleDateString()}</span></p>
               </div>
 
               <div style={{ display: 'flex', gap: 12, marginTop: 16 }}>

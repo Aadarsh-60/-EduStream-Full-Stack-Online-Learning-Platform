@@ -1,5 +1,6 @@
 import express from 'express';
 import passport from 'passport';
+import '../config/passport.js';
 import {
   register, verifyEmail, login, refreshAccessToken,
   logout, forgotPassword, resetPassword, getMe, contactAdmin

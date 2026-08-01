@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { Play, Clock, Users, Star, CheckCircle, Lock, ChevronDown, ChevronUp, ShoppingCart, BookOpen, Heart, Award } from 'lucide-react';
+import { Play, Clock, Users, Star, CheckCircle, Lock, ChevronDown, ChevronUp, ShoppingCart, BookOpen, Heart, Award, X } from 'lucide-react';
 import { courseAPI, reviewAPI, paymentAPI, userAPI } from '../services/api.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import toast from 'react-hot-toast';
@@ -23,6 +23,20 @@ export default function CourseDetailPage() {
   const [reviewForm, setReviewForm] = useState({ rating: 5, comment: '' });
   const [submittingReview, setSubmittingReview] = useState(false);
   const [activeTab, setActiveTab] = useState('reviews'); // 'reviews' | 'qa'
+  const [playingLecture, setPlayingLecture] = useState(null);
+
+  const handleCompleteLecture = async () => {
+    if (!enrolled) return;
+    try {
+      await userAPI.updateProgress({ courseId: id, progress: 100 });
+      setEnrollData({ ...enrollData, progress: 100 });
+      toast.success('Course marked as complete!');
+      setPlayingLecture(null);
+      setTimeout(() => window.dispatchEvent(new CustomEvent('open-certificate', { detail: course })), 800);
+    } catch (e) {
+      toast.error('Failed to update progress');
+    }
+  };
 
   useEffect(() => {
     Promise.all([
@@ -154,7 +168,7 @@ export default function CourseDetailPage() {
               <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><Play size={14} />{course.totalLectures} lectures</span>
               {course.totalDuration > 0 && <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><Clock size={14} />{fmtDur(course.totalDuration)}</span>}
             </div>
-            <p style={{ marginTop: 12, fontSize: '0.82rem' }}>By <span style={{ color: 'var(--indigo-light)' }}>{course.instructor?.name}</span></p>
+            <p style={{ marginTop: 12, fontSize: '0.82rem' }}>By <Link to={`/u/${course.instructor?.id}`} style={{ color: 'var(--indigo-light)', textDecoration: 'none' }}>{course.instructor?.name}</Link></p>
           </div>
         </div>
       </div>
@@ -206,7 +220,12 @@ export default function CourseDetailPage() {
                     {openSec === si && (
                       <div style={{ borderTop: '1px solid var(--border)' }}>
                         {section.lectures?.map((lecture, li) => (
-                          <div key={li} style={{ padding: '12px 18px', display: 'flex', alignItems: 'center', gap: 12, borderBottom: li < section.lectures.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
+                          <div key={li} 
+                            onClick={() => { if (lecture.isFree || enrolled) setPlayingLecture(lecture); }}
+                            style={{ padding: '12px 18px', display: 'flex', alignItems: 'center', gap: 12, cursor: (lecture.isFree || enrolled) ? 'pointer' : 'default', borderBottom: li < section.lectures.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}
+                            onMouseEnter={e => { if (lecture.isFree || enrolled) e.currentTarget.style.background = 'rgba(255,255,255,0.02)' }}
+                            onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+                          >
                             {lecture.isFree || enrolled
                               ? <Play size={14} color="var(--indigo-light)" />
                               : <Lock size={14} color="var(--muted)" />
@@ -371,6 +390,42 @@ export default function CourseDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Video Player Modal */}
+      {playingLecture && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(10, 15, 30, 0.9)', backdropFilter: 'blur(8px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div style={{ background: 'var(--navy-800)', borderRadius: 16, overflow: 'hidden', width: '100%', maxWidth: 900, boxShadow: '0 25px 50px rgba(0,0,0,0.5)', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ padding: '16px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border)' }}>
+              <h3 style={{ fontSize: '1.1rem', margin: 0 }}>{playingLecture.title}</h3>
+              <button onClick={() => setPlayingLecture(null)} className="btn btn-ghost" style={{ padding: 4 }}><X size={20} /></button>
+            </div>
+            
+            <div style={{ background: '#000', width: '100%', aspectRatio: '16/9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              {playingLecture.videoUrl ? (
+                <video src={playingLecture.videoUrl} controls autoPlay style={{ width: '100%', height: '100%' }} />
+              ) : (
+                <div style={{ color: 'var(--muted)', textAlign: 'center' }}>
+                  <Play size={48} style={{ opacity: 0.2, margin: '0 auto 12px' }} />
+                  <p>Video content will be available soon.</p>
+                </div>
+              )}
+            </div>
+
+            <div style={{ padding: 24, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <p style={{ fontSize: '0.9rem', color: 'var(--lavender)' }}>{playingLecture.description}</p>
+                <div style={{ fontSize: '0.8rem', color: 'var(--muted)', marginTop: 8 }}><Clock size={12} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} /> {fmtDur(playingLecture.duration)}</div>
+              </div>
+              
+              {enrolled && (
+                <button onClick={handleCompleteLecture} className="btn btn-success">
+                  <CheckCircle size={16} /> Mark as Complete
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -56,7 +56,10 @@ const courseSchema = new mongoose.Schema(
 );
 
 // Full-text search ke liye index
-courseSchema.index({ title: 'text', description: 'text', tags: 'text' });
+courseSchema.index(
+  { title: 'text', description: 'text', tags: 'text' },
+  { language_override: 'dummy' }
+);
 courseSchema.index({ category: 1 });
 courseSchema.index({ status: 1 });
 courseSchema.index({ 'instructor.id': 1 });

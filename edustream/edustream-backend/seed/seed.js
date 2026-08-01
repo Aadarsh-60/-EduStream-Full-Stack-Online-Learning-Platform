@@ -75,28 +75,17 @@ const notificationSchema = new mongoose.Schema({
 const seed = async () => {
   console.log(cyan('\n🌱 EduStream Seed Script Starting...\n'));
 
-  // Auth DB
-  const authConn = await mongoose.createConnection(`${MONGO_URI}/edustream_auth`).asPromise();
-  const User = authConn.model('User', userSchema);
+  // Connect to Monolithic DB
+  const dbConn = await mongoose.createConnection(`${MONGO_URI}/edustream`).asPromise();
+  
+  const User = dbConn.model('User', userSchema);
+  const UserProfile = dbConn.model('UserProfile', profileSchema);
+  const Course = dbConn.model('Course', courseSchema);
+  const Enrollment = dbConn.model('Enrollment', enrollmentSchema);
+  const Review = dbConn.model('Review', reviewSchema);
+  const Notification = dbConn.model('Notification', notificationSchema);
 
-  // Users DB
-  const usersConn = await mongoose.createConnection(`${MONGO_URI}/edustream_users`).asPromise();
-  const UserProfile = usersConn.model('UserProfile', profileSchema);
-
-  // Courses DB
-  const coursesConn = await mongoose.createConnection(`${MONGO_URI}/edustream_courses`).asPromise();
-  const Course = coursesConn.model('Course', courseSchema);
-  const Enrollment = coursesConn.model('Enrollment', enrollmentSchema);
-
-  // Reviews DB
-  const reviewsConn = await mongoose.createConnection(`${MONGO_URI}/edustream_reviews`).asPromise();
-  const Review = reviewsConn.model('Review', reviewSchema);
-
-  // Notifications DB
-  const notifConn = await mongoose.createConnection(`${MONGO_URI}/edustream_notifications`).asPromise();
-  const Notification = notifConn.model('Notification', notificationSchema);
-
-  console.log(green('✅ All databases connected'));
+  console.log(green('✅ Database connected'));
 
   // ── Clear existing data ──────────────────────────────────────
   await Promise.all([
@@ -183,11 +172,33 @@ const seed = async () => {
     },
   ]);
 
+  const extraStudents = Array.from({ length: 65 }).map((_, i) => ({
+    name: `Student ${i+3}`,
+    email: `student${i+3}@edustream.com`,
+    password: hashedPassword,
+    role: 'student',
+    isEmailVerified: true,
+    isActive: true,
+    refreshTokens: [],
+  }));
+  const extraInstructorsList = Array.from({ length: 12 }).map((_, i) => ({
+    name: `Expert Instructor ${i+1}`,
+    email: `expert${i+1}@edustream.com`,
+    password: hashedPassword,
+    role: 'instructor',
+    isEmailVerified: true,
+    isActive: true,
+    refreshTokens: [],
+    avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=expert${i}`,
+  }));
+  const extraUsers = await User.insertMany([...extraStudents, ...extraInstructorsList]);
+  const allInstructors = [...users.filter(u => u.role === 'instructor'), ...extraUsers.filter(u => u.role === 'instructor')];
+
   const [admin, instructor1, instructor2, student1, student2, instructor3, instructor4] = users;
-  console.log(green(`✅ ${users.length} users created`));
+  console.log(green(`✅ ${users.length + extraUsers.length} users created (including 16 instructors)`));
 
   // ── Seed User Profiles ───────────────────────────────────────
-  await UserProfile.insertMany([
+  const profiles = [
     {
       userId: admin._id, name: admin.name, email: admin.email, role: 'admin',
       avatar: { url: null, publicId: null }, bio: 'Platform administrator',
@@ -236,8 +247,16 @@ const seed = async () => {
       headline: 'Lead Product Designer',
       enrolledCourses: [], createdCourses: [], totalEarnings: 62000, isActive: true,
     },
-  ]);
-  console.log(green(`✅ 7 user profiles created`));
+  ];
+
+  const extraProfiles = extraUsers.map(u => ({
+    userId: u._id, name: u.name, email: u.email, role: u.role,
+    avatar: { url: u.avatar || null, publicId: null }, bio: u.role === 'instructor' ? 'Professional Expert Instructor' : 'Enthusiastic Learner',
+    enrolledCourses: [], createdCourses: [], totalEarnings: u.role === 'instructor' ? Math.floor(Math.random() * 100000) : 0, isActive: true,
+  }));
+
+  await UserProfile.insertMany([...profiles, ...extraProfiles]);
+  console.log(green(`✅ ${profiles.length + extraProfiles.length} user profiles created`));
 
   // ── Seed Courses ─────────────────────────────────────────────
   const courses = await Course.insertMany([
@@ -513,11 +532,62 @@ const seed = async () => {
     },
   ]);
 
-  console.log(green(`✅ ${courses.length} courses created`));
+  console.log(green(`✅ ${courses.length} manual courses created`));
+
+  const sampleCourseData = [
+    { title: 'Mastering Go Programming', category: 'Backend' },
+    { title: 'Fullstack Next.js 14', category: 'Web Development' },
+    { title: 'Data Structures and Algorithms', category: 'Computer Science' },
+    { title: 'Figma for Beginners', category: 'Design' },
+    { title: 'Machine Learning with PyTorch', category: 'Data Science' },
+    { title: 'Advanced CSS and Sass', category: 'Web Development' },
+    { title: 'Angular Masterclass', category: 'Web Development' },
+    { title: 'Kubernetes from Scratch', category: 'DevOps' },
+    { title: 'Flutter & Dart - Complete Guide', category: 'Mobile Development' },
+    { title: 'Cyber Security Basics', category: 'Security' },
+    { title: 'Ethical Hacking Course', category: 'Security' },
+    { title: 'Game Development with Unity', category: 'Game Dev' },
+    { title: 'Unreal Engine 5 for Beginners', category: 'Game Dev' },
+    { title: 'Digital Marketing 101', category: 'Business' },
+    { title: 'Project Management Professional', category: 'Business' },
+    { title: 'Spring Boot & Java Microservices', category: 'Backend' },
+    { title: 'C# and .NET Core', category: 'Backend' },
+    { title: 'Swift & iOS Development', category: 'Mobile Development' },
+    { title: 'Android App Development with Kotlin', category: 'Mobile Development' },
+    { title: 'SQL & Database Design', category: 'Database' }
+  ];
+
+  const extraCoursesList = sampleCourseData.map((c, i) => {
+    const inst = allInstructors[Math.floor(Math.random() * allInstructors.length)];
+    return {
+      title: c.title,
+      description: `Complete guide to ${c.title}. Learn everything from scratch.`,
+      instructor: { id: inst._id, name: inst.name },
+      thumbnail: { url: `https://picsum.photos/seed/edustream${i}/800/450`, publicId: null },
+      price: Math.floor(Math.random() * 90 + 20) * 10000, // ₹2000 to ₹11000 (in paise)
+      discountPrice: null,
+      category: c.category,
+      level: 'beginner',
+      language: 'English',
+      tags: [c.category.toLowerCase()],
+      requirements: [], learningOutcomes: [],
+      sections: [],
+      status: 'published',
+      enrolledCount: Math.floor(Math.random() * 500),
+      rating: parseFloat((Math.random() * 1 + 4).toFixed(1)), // 4.0 to 5.0
+      ratingCount: Math.floor(Math.random() * 200),
+      totalDuration: 10000, totalLectures: 10,
+    };
+  });
+  
+  const extraCourses = await Course.insertMany(extraCoursesList);
+  courses.push(...extraCourses); // Push so they are used for enrollments
+  console.log(green(`✅ ${extraCourses.length} dynamic courses created`));
+
   const [course1, course2, course3, course4, course5, course6, course7, course8, course9] = courses;
 
   // ── Seed Enrollments ─────────────────────────────────────────
-  const enrollments = await Enrollment.insertMany([
+  const manualEnrollments = [
     {
       userId: student1._id, courseId: course1._id,
       paymentId: 'pay_test_001', amount: 29900,
@@ -558,7 +628,34 @@ const seed = async () => {
       progress: 80, completedLectures: [],
       isCompleted: false,
     },
-  ]);
+  ];
+
+  const extraEnrollments = [];
+  extraUsers.forEach((user, i) => {
+    const numCourses = (i % 4) + 1; // 1 to 4 courses
+    const selectedCourseIds = new Set();
+    for(let j=0; j<numCourses; j++) {
+      let c = courses[Math.floor(Math.random() * courses.length)];
+      while (selectedCourseIds.has(c._id.toString())) {
+        c = courses[Math.floor(Math.random() * courses.length)];
+      }
+      selectedCourseIds.add(c._id.toString());
+      
+      extraEnrollments.push({
+        userId: user._id, courseId: c._id,
+        paymentId: `pay_auto_${i}_${j}`, amount: c.price || 999,
+        progress: Math.floor(Math.random() * 100), completedLectures: [],
+        isCompleted: false,
+      });
+      // Increment enrolled count
+      c.enrolledCount += 1;
+    }
+  });
+
+  const enrollments = await Enrollment.insertMany([...manualEnrollments, ...extraEnrollments]);
+  // Save updated courses with new enrolled counts
+  await Promise.all(courses.map(c => c.save()));
+  
   console.log(green(`✅ ${enrollments.length} enrollments created`));
 
   // Update student profiles with enrolled courses
@@ -613,9 +710,9 @@ const seed = async () => {
   console.log('│  Student     │  student2@edustream.com      │');
   console.log('└─────────────────────────────────────────────┘');
   console.log(yellow('\n📚 Created:'));
-  console.log(`  • 7 Users (1 admin, 4 instructors, 2 students)`);
-  console.log(`  • 8 Published Courses + 1 Draft`);
-  console.log(`  • 4 Enrollments`);
+  console.log(`  • ${users.length + extraUsers.length} Users (1 admin, 16 instructors, 67 students)`);
+  console.log(`  • ${courses.length} Published Courses (8 manual + 1 draft + 20 dynamic)`);
+  console.log(`  • ${enrollments.length} Enrollments`);
   console.log(`  • 5 Reviews`);
   console.log(`  • 6 Notifications`);
   console.log(yellow('\n🚀 Run services and test:'));
@@ -623,11 +720,8 @@ const seed = async () => {
   console.log('  GET  http://localhost:5000/api/courses');
   console.log('  GET  http://localhost:5000/api/search?q=mern\n');
 
-  // Close all connections
-  await Promise.all([
-    authConn.close(), usersConn.close(), coursesConn.close(),
-    reviewsConn.close(), notifConn.close(),
-  ]);
+  // Close connection
+  await dbConn.close();
 
   process.exit(0);
 };

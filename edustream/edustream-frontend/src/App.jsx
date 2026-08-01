@@ -11,6 +11,7 @@ import CourseDetailPage from './pages/CourseDetailPage.jsx';
 import { LoginPage, RegisterPage, VerifyEmailPage, ForgotPasswordPage, OAuthSuccessPage } from './pages/AuthPages.jsx';
 import DashboardPage    from './pages/DashboardPage.jsx';
 import ProfilePage      from './pages/ProfilePage.jsx';
+import PublicProfilePage from './pages/PublicProfilePage.jsx';
 import CreateCoursePage from './pages/CreateCoursePage.jsx';
 import ManageCoursePage from './pages/ManageCoursePage.jsx';
 import ContactPage      from './pages/ContactPage.jsx';
@@ -27,6 +28,7 @@ export default function App() {
         <Route path="/"           element={<HomePage />} />
         <Route path="/courses"    element={<CoursesPage />} />
         <Route path="/courses/:id" element={<CourseDetailPage />} />
+        <Route path="/u/:id"      element={<PublicProfilePage />} />
         <Route path="/login"      element={<LoginPage />} />
         <Route path="/register"   element={<RegisterPage />} />
         <Route path="/verify-email" element={<VerifyEmailPage />} />

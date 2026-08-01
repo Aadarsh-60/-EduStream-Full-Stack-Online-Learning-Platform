@@ -71,16 +71,17 @@ export const verifyPayment = async (req, res, next) => {
     );
     if (!payment) throw new AppError('Payment record not found', 404);
 
-    // Course service ko enrollment ke liye call karo
-    await axios.post(`${process.env.COURSE_SERVICE_URL}/api/courses/internal/enroll`, {
+    // Course service ko enrollment ke liye call karo (Internal Monolith Call)
+    const baseUrl = `http://localhost:${process.env.PORT || 5000}`;
+    await axios.post(`${baseUrl}/api/courses/internal/enroll`, {
       userId,
       courseId:  payment.courseId,
       paymentId: razorpayPaymentId,
       amount:    payment.amount / 100, // paise to rupees
     });
 
-    // Notification service ko call karo
-    await axios.post(`${process.env.NOTIFICATION_SERVICE_URL}/api/notifications/internal/send`, {
+    // Notification service ko call karo (Internal Monolith Call)
+    await axios.post(`${baseUrl}/api/notifications/internal/send`, {
       userId,
       type:    'payment_success',
       message: 'Payment successful! You are now enrolled in the course.',
