@@ -40,12 +40,14 @@ passport.use(
       userProfileURL: 'https://www.googleapis.com/oauth2/v3/userinfo',
       customHeaders: {
         'User-Agent': 'edustream-backend'
-      }
+      },
+      passReqToCallback: true
     },
-    async (accessToken, refreshToken, profile, done) => {
+    async (req, accessToken, refreshToken, profile, done) => {
       try {
         const email = profile.emails[0].value;
         const avatar = profile.photos[0]?.value;
+        const requestedRole = req.query.state || 'student';
 
         let user = await User.findOne({ email });
 
@@ -65,7 +67,7 @@ passport.use(
             googleId: profile.id,
             avatar,
             isEmailVerified: true,
-            role: 'student',
+            role: requestedRole,
           });
         }
 

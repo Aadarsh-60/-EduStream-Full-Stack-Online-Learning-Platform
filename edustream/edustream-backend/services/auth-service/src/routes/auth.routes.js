@@ -20,7 +20,10 @@ router.get('/me', verifyToken, getMe);
 router.post('/contact', contactAdmin);
 
 // Google OAuth
-router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
+router.get('/google', (req, res, next) => {
+  const role = req.query.role || 'student';
+  passport.authenticate('google', { scope: ['profile', 'email'], state: role })(req, res, next);
+});
 router.get('/google/callback',
   (req, res, next) => {
     passport.authenticate('google', { session: false }, (err, data) => {

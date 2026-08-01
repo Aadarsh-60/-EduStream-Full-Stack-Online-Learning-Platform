@@ -158,12 +158,12 @@ export function RegisterPage() {
           <div style={{ flex: 1, height: 1, background: 'var(--glass-border)' }} />
         </div>
 
-        <a href="/api/auth/google" className="btn" style={{ 
+        <a href={`/api/auth/google?role=${form.role}`} className="btn" style={{ 
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, 
           background: '#fff', color: '#333', height: 48, width: '100%', borderRadius: 'var(--radius-sm)', transition: 'background 0.2s'
         }} onMouseEnter={e => e.currentTarget.style.background = '#f1f1f1'} onMouseLeave={e => e.currentTarget.style.background = '#fff'}>
           <GoogleIcon />
-          <span style={{ fontWeight: 600 }}>Continue with Google</span>
+          <span style={{ fontWeight: 600 }}>Continue with Google as {form.role === 'instructor' ? 'Instructor' : 'Student'}</span>
         </a>
 
         <p style={{ textAlign: 'center', fontSize: '0.85rem', marginTop: 8 }}>
