@@ -2,6 +2,7 @@ services:
   - type: web
     name: edustream-backend
     env: node
+    rootDir: edustream-backend
     plan: free
     buildCommand: npm install
     startCommand: npm start
