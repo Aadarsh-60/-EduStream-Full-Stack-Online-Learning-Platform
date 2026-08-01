@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Play, Clock, Users, Star, CheckCircle, Lock, ChevronDown, ChevronUp, ShoppingCart, BookOpen, Heart, Award, X } from 'lucide-react';
-import { courseAPI, reviewAPI, paymentAPI, userAPI } from '../services/api.js';
+import { courseAPI, reviewAPI, paymentAPI, userAPI, searchAPI } from '../services/api.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import toast from 'react-hot-toast';
 import CourseQA from '../components/course/CourseQA.jsx';
+import QuizModal from '../components/common/QuizModal.jsx';
 
 const fmtDur = (s) => { const h = Math.floor(s/3600), m = Math.floor((s%3600)/60); return h ? `${h}h ${m}m` : `${m}m`; };
 
@@ -24,14 +25,28 @@ export default function CourseDetailPage() {
   const [submittingReview, setSubmittingReview] = useState(false);
   const [activeTab, setActiveTab] = useState('reviews'); // 'reviews' | 'qa'
   const [playingLecture, setPlayingLecture] = useState(null);
+  
+  const [isQuizOpen, setIsQuizOpen] = useState(false);
+  const [quizData, setQuizData] = useState([]);
 
   const handleCompleteLecture = async () => {
     if (!enrolled) return;
     try {
+      setIsQuizOpen(true);
+      setPlayingLecture(null);
+      const { data } = await searchAPI.generateQuiz(course._id);
+      setQuizData(data.data.quiz);
+    } catch (e) {
+      toast.error('Failed to generate AI Quiz. Please try again later.');
+      setIsQuizOpen(false);
+    }
+  };
+
+  const handlePassQuiz = async () => {
+    try {
       await userAPI.updateProgress({ courseId: id, progress: 100 });
       setEnrollData({ ...enrollData, progress: 100 });
-      toast.success('Course marked as complete!');
-      setPlayingLecture(null);
+      toast.success('Course passed and marked as complete!');
       setTimeout(() => window.dispatchEvent(new CustomEvent('open-certificate', { detail: course })), 800);
     } catch (e) {
       toast.error('Failed to update progress');
@@ -417,15 +432,24 @@ export default function CourseDetailPage() {
                 <div style={{ fontSize: '0.8rem', color: 'var(--muted)', marginTop: 8 }}><Clock size={12} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} /> {fmtDur(playingLecture.duration)}</div>
               </div>
               
-              {enrolled && (
-                <button onClick={handleCompleteLecture} className="btn btn-success">
-                  <CheckCircle size={16} /> Mark as Complete
+              {enrolled && enrollData?.progress !== 100 && (
+                <button onClick={handleCompleteLecture} className="btn btn-success" style={{ background: 'linear-gradient(to right, #10b981, #059669)', border: 'none' }}>
+                  <Award size={16} /> Take Final Exam
                 </button>
               )}
             </div>
           </div>
         </div>
       )}
+
+      {/* AI Quiz Modal */}
+      <QuizModal
+        isOpen={isQuizOpen}
+        onClose={() => setIsQuizOpen(false)}
+        courseTitle={course.title}
+        quizData={quizData}
+        onPass={handlePassQuiz}
+      />
     </div>
   );
 }

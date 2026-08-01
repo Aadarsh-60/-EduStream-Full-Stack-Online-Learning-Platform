@@ -88,6 +88,53 @@ router.post('/ai/chat', async (req, res, next) => {
   }
 });
 
+// ── AI Quiz Generator ─────────────────────────────────────────
+router.post('/ai/generate-quiz', async (req, res, next) => {
+  try {
+    const { courseId } = req.body;
+    if (!courseId) return res.status(400).json({ message: 'Course ID is required' });
+
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) return res.status(500).json({ message: 'GEMINI_API_KEY is not configured' });
+
+    const course = await CourseModel.findById(courseId).select('title description requirements');
+    if (!course) return res.status(404).json({ message: 'Course not found' });
+
+    const prompt = `Generate a 10-question multiple-choice quiz for a course titled "${course.title}". 
+Description: ${course.description}
+Requirements: ${course.requirements.join(', ')}
+
+Return ONLY a valid JSON array of objects. Do NOT include markdown formatting like \`\`\`json or \`\`\`. 
+Each object must have this exact structure:
+{
+  "question": "The question text",
+  "options": ["Option A", "Option B", "Option C", "Option D"],
+  "correctAnswer": "The exact string of the correct option"
+}`;
+
+    const contents = [{ role: 'user', parts: [{ text: prompt }] }];
+    
+    const response = await axios.post(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+      { contents, generationConfig: { temperature: 0.2 } },
+      { headers: { 'Content-Type': 'application/json' } }
+    );
+
+    let responseText = response.data.candidates?.[0]?.content?.parts?.[0]?.text;
+    
+    // Clean up potential markdown blocks if Gemini includes them despite instructions
+    responseText = responseText.replace(/```json/gi, '').replace(/```/g, '').trim();
+
+    const quizData = JSON.parse(responseText);
+
+    return successResponse(res, HTTP_STATUS.OK, 'Quiz generated', { quiz: quizData });
+  } catch (err) {
+    console.error('AI Quiz Error:', err.response?.data || err.message);
+    const msg = err.response?.data?.error?.message || err.message;
+    return res.status(500).json({ success: false, message: msg });
+  }
+});
+
 // ── Get Categories ─────────────────────────────────────────────
 router.get('/categories', async (req, res, next) => {
   try {

@@ -84,6 +84,7 @@ export const searchAPI = {
   categories:   ()       => api.get('/search/categories'),
   autocomplete: (q)      => api.get(`/search/autocomplete?q=${q}`),
   chat:         (msgs)   => api.post('/search/ai/chat', { messages: msgs }),
+  generateQuiz: (courseId) => api.post('/search/ai/generate-quiz', { courseId }),
 };
 
 // ── Payments ──────────────────────────────────────────────────
