@@ -1,6 +1,7 @@
 import passport from 'passport';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import User from '../models/User.js';
+import UserProfile from '../../user-service/src/models/UserProfile.js';
 import { generateAccessToken, generateRefreshToken } from '../utils/token.js';
 
 // Node 20+ / 24+ me old oauth library Google APIs ke sath TLS reset mar sakti hai.
@@ -68,6 +69,14 @@ passport.use(
             avatar,
             isEmailVerified: true,
             role: requestedRole,
+          });
+
+          await UserProfile.create({
+            userId: user._id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            avatar: { url: avatar, publicId: null }
           });
         }
 

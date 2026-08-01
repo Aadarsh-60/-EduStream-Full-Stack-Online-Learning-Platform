@@ -1,4 +1,5 @@
 import User from '../models/User.js';
+import UserProfile from '../../user-service/src/models/UserProfile.js';
 import {
   generateAccessToken,
   generateRefreshToken,
@@ -29,6 +30,14 @@ export const register = async (req, res, next) => {
       role: role || 'student',
       emailVerifyToken: verifyOtp,
       emailVerifyExpiry: Date.now() + 10 * 60 * 1000, // 10 minutes
+    });
+
+    // Create corresponding user profile
+    await UserProfile.create({
+      userId: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
     });
 
     // Email send karo (async - user ko wait nahi karwate)
@@ -204,8 +213,10 @@ export const resetPassword = async (req, res, next) => {
 export const getMe = async (req, res, next) => {
   try {
     const userId = req.headers['x-user-id'];
+    console.log("getMe CALLED with userId:", userId);
     const user = await User.findById(userId);
-    if (!user) throw new AppError('User not found', 404);
+    console.log("getMe DB RESULT:", user ? "Found" : "Not Found");
+    if (!user) throw new AppError(`User not found for id: ${userId}`, 404);
 
     return successResponse(res, HTTP_STATUS.OK, 'User fetched', {
       id: user._id, name: user.name, email: user.email, role: user.role, avatar: user.avatar,

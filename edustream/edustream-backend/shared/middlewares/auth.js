@@ -17,6 +17,7 @@ export const verifyToken = (req, res, next) => {
     req.headers['x-user-id']    = decoded.userId;
     req.headers['x-user-role']  = decoded.role;
     req.headers['x-user-email'] = decoded.email;
+    console.log("verifyToken SUCCESS: decoded payload:", decoded);
 
     next();
   } catch (err) {
