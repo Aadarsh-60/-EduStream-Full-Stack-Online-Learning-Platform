@@ -13,7 +13,7 @@
   <p>A comprehensive, fully responsive e-learning system with video streaming, PDF certificate generation, Razorpay payments, real-time notifications, AI Chatbot (EduBot), and role-based access control.</p>
 
   <p>
-    <a href="#">Live Demo</a> ·
+    <a href="https://edustream-full-stack-online-learning-qqzi.onrender.com">Live Demo</a> ·
     <a href="https://github.com/Aadarsh-60/-EduStream-Full-Stack-Online-Learning-Platform/issues">Report Bug</a> ·
     <a href="https://github.com/Aadarsh-60/-EduStream-Full-Stack-Online-Learning-Platform/issues">Request Feature</a>
   </p>
