@@ -374,9 +374,9 @@ export default function HomePage() {
             <div style={{ width: 32, height: 32, borderRadius: 8, background: 'linear-gradient(135deg, #6C63FF, #4F46E5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <span style={{ fontSize: '1rem', color: '#fff', fontWeight: 700 }}>E</span>
             </div>
-            <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '1.2rem', color: '#fff' }}>EduStream</span>
+            <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '1.2rem', color: 'var(--text-main)' }}>EduStream</span>
           </div>
-          <p style={{ fontSize: '0.95rem' }}>© 2024 EduStream. Built with MERN Microservices.</p>
+          <p style={{ fontSize: '0.95rem' }}>© 2024 EduStream. Built with MERN Monolithic Architecture.</p>
           <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
             <Link to="/courses" style={{ fontSize: '0.95rem', color: 'var(--muted)', textDecoration: 'none' }}>Courses</Link>
             <a href="#about" style={{ fontSize: '0.95rem', color: 'var(--muted)', textDecoration: 'none' }}>About Us</a>

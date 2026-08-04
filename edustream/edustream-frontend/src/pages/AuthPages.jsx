@@ -130,7 +130,9 @@ export function RegisterPage() {
   const handle = async (e) => {
     e.preventDefault();
     if (!form.name || !form.email || !form.password) return toast.error('Fill all fields');
-    if (form.password.length < 6) return toast.error('Password must be 6+ characters');
+    if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#])[A-Za-z\d@$!%*?&#]{8,}$/.test(form.password)) {
+      return toast.error('Password must be 8+ chars, with 1 uppercase, 1 lowercase, 1 number, and 1 special character');
+    }
     setLoading(true);
     try {
       await authAPI.register(form);
@@ -146,7 +148,7 @@ export function RegisterPage() {
       <form onSubmit={handle} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <AuthInput icon={User} label="Full name" type="text" placeholder="Rahul Sharma" value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} />
         <AuthInput icon={Mail} label="Email address" type="email" placeholder="you@example.com" value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))} />
-        <AuthInput icon={Lock} label="Password" type="password" placeholder="Min. 6 characters" value={form.password} onChange={e => setForm(p => ({ ...p, password: e.target.value }))} />
+        <AuthInput icon={Lock} label="Password" type="password" placeholder="Min. 8 chars, 1 uppercase, 1 number, 1 special char" value={form.password} onChange={e => setForm(p => ({ ...p, password: e.target.value }))} />
 
         <div>
           <label className="input-label">I want to</label>
@@ -203,7 +205,7 @@ function AuthLayout({ title, subtitle, children }) {
             <div style={{ width: 44, height: 44, borderRadius: 12, background: 'linear-gradient(135deg, #6C63FF, #4F46E5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <BookOpen size={22} color="#fff" />
             </div>
-            <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '1.4rem', color: '#fff' }}>EduStream</span>
+            <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '1.4rem', color: 'var(--text-main)' }}>EduStream</span>
           </Link>
           <h2 style={{ marginBottom: 8, fontSize: '1.8rem' }}>{title}</h2>
           <p style={{ fontSize: '1rem' }}>{subtitle}</p>
@@ -296,7 +298,9 @@ export function ForgotPasswordPage() {
     e.preventDefault();
     if (!otp) return toast.error('OTP is required');
     if (otp.length !== 6) return toast.error('OTP must be 6 digits');
-    if (!newPassword || newPassword.length < 6) return toast.error('Password must be at least 6 characters');
+    if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#])[A-Za-z\d@$!%*?&#]{8,}$/.test(newPassword)) {
+      return toast.error('Password must be 8+ chars, with uppercase, number, and special character');
+    }
     
     setLoading(true);
     try {
@@ -339,8 +343,8 @@ export function ForgotPasswordPage() {
             maxLength={6}
             style={{ textAlign: 'center', letterSpacing: '4px', fontSize: '1.2rem', fontWeight: 600 }}
           />
-          <AuthInput icon={Lock} label="New Password" type="password" placeholder="At least 6 characters" value={newPassword} onChange={e => setNewPassword(e.target.value)} />
-          <button type="submit" className="btn btn-primary" style={{ height: 48, marginTop: 4 }} disabled={loading || otp.length !== 6 || newPassword.length < 6}>
+          <AuthInput icon={Lock} label="New Password" type="password" placeholder="Min 8 chars, uppercase, number, special" value={newPassword} onChange={e => setNewPassword(e.target.value)} />
+          <button type="submit" className="btn btn-primary" style={{ height: 48, marginTop: 4 }} disabled={loading || otp.length !== 6 || newPassword.length < 8}>
             {loading ? 'Resetting...' : <><span>Update Password</span> <ArrowRight size={16} /></>}
           </button>
           <div style={{ textAlign: 'center', marginTop: 8 }}>

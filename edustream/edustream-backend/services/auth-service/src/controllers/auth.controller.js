@@ -86,6 +86,8 @@ export const login = async (req, res, next) => {
     if (!user) throw new AppError('Invalid email or password', 401);
     if (!user.isActive) throw new AppError('Account deactivated', 403);
 
+    if (!user.password) throw new AppError('This account was created with Google. Please use Google Login.', 401);
+
     const isMatch = await user.comparePassword(password);
     if (!isMatch) throw new AppError('Invalid email or password', 401);
 
@@ -244,6 +246,9 @@ export const contactAdmin = async (req, res, next) => {
     const { name, email, subject, message } = req.body;
     if (!name || !email || !subject || !message) {
       throw new AppError('All fields are required', 400);
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      throw new AppError('Invalid email format', 400);
     }
 
     await sendContactAdminEmail(name, email, subject, message);

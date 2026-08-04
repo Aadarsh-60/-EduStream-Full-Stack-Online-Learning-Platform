@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Search, Bell, ChevronDown, LogOut, User, BookOpen, LayoutDashboard, Menu, X, Sun, Moon } from 'lucide-react';
+import { Search, Bell, ChevronDown, ChevronLeft, ChevronRight, LogOut, User, BookOpen, LayoutDashboard, Menu, X, Sun, Moon } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { notificationAPI } from '../../services/api.js';
 import toast from 'react-hot-toast';
@@ -60,6 +60,16 @@ export default function Navbar() {
       <div style={{ height: '3px', width: '100%', background: 'linear-gradient(90deg, var(--indigo), var(--gold), var(--success))' }} />
 
       <div className="container" style={{ display: 'flex', alignItems: 'center', gap: 16, height: 68 }}>
+
+        {/* Navigation History */}
+        <div style={{ display: 'flex', gap: 4, marginRight: 8 }} className="desktop-only">
+          <button onClick={() => navigate(-1)} className="btn btn-ghost btn-sm" style={{ padding: '6px', borderRadius: '50%' }}>
+            <ChevronLeft size={20} />
+          </button>
+          <button onClick={() => navigate(1)} className="btn btn-ghost btn-sm" style={{ padding: '6px', borderRadius: '50%' }}>
+            <ChevronRight size={20} />
+          </button>
+        </div>
 
         {/* Logo */}
         <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>

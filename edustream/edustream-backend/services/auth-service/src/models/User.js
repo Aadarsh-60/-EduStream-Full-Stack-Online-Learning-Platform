@@ -16,7 +16,13 @@ const userSchema = new mongoose.Schema(
     },
     password: {
       type: String,
-      minlength: [6, 'Password must be at least 6 characters'],
+      validate: {
+        validator: function(v) {
+          if (!v) return true; // allow empty for google auth
+          return /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#])[A-Za-z\d@$!%*?&#]{8,}$/.test(v);
+        },
+        message: 'Password must be at least 8 chars long and contain 1 uppercase, 1 lowercase, 1 number, and 1 special character'
+      },
       select: false, // query mein by default password nahi aayega
     },
     role: {

@@ -59,13 +59,17 @@ app.use(express.json());
 // Global rate limiter
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 1000,
+  max: 500, // Reduced for production
+  standardHeaders: true,
+  legacyHeaders: false,
   handler: (req, res) => errorResponse(res, 429, 'Too many requests, please try again later'),
 });
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 200,
+  max: 15, // Strictly prevent brute-force attacks
+  standardHeaders: true,
+  legacyHeaders: false,
   handler: (req, res) => errorResponse(res, 429, 'Too many auth attempts, try after 15 minutes'),
 });
 

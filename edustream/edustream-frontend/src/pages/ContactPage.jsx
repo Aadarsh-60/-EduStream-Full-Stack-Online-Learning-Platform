@@ -12,6 +12,9 @@ export default function ContactPage() {
     if (!form.name || !form.email || !form.subject || !form.message) {
       return toast.error('Please fill all fields');
     }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
+      return toast.error('Please enter a valid email address (e.g. name@example.com)');
+    }
 
     setLoading(true);
     try {
