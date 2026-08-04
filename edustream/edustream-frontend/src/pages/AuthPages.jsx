@@ -46,7 +46,7 @@ export function LoginPage() {
     try {
       const user = await login(form.email, form.password);
       toast.success(`Welcome back, ${user.name.split(' ')[0]}!`);
-      navigate(user.role === 'instructor' || user.role === 'admin' ? '/dashboard' : '/dashboard');
+      navigate('/dashboard', { replace: true });
     } catch (err) {
       toast.error(err.response?.data?.message || 'Login failed');
     } finally { setLoading(false); }
@@ -234,7 +234,7 @@ export function VerifyEmailPage() {
     try {
       await authAPI.verifyEmail({ email, otp });
       toast.success('Email verified successfully! You can now login.');
-      navigate('/login');
+      navigate('/login', { replace: true });
     } catch (err) {
       toast.error(err.response?.data?.message || 'Verification failed');
     } finally {
@@ -306,7 +306,7 @@ export function ForgotPasswordPage() {
     try {
       await authAPI.resetPassword({ token: otp, newPassword });
       toast.success('Password reset successfully! You can now login.');
-      navigate('/login');
+      navigate('/login', { replace: true });
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to reset password');
     } finally {
