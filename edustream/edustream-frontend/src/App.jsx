@@ -2,6 +2,7 @@ import { Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext.jsx';
 import Navbar from './components/common/Navbar.jsx';
 import ProtectedRoute from './components/common/ProtectedRoute.jsx';
+import GuestRoute from './components/common/GuestRoute.jsx';
 import CertificateModal from './components/common/CertificateModal.jsx';
 import EduBot from './components/common/EduBot.jsx';
 
@@ -29,10 +30,10 @@ export default function App() {
         <Route path="/courses"    element={<CoursesPage />} />
         <Route path="/courses/:id" element={<CourseDetailPage />} />
         <Route path="/u/:id"      element={<PublicProfilePage />} />
-        <Route path="/login"      element={<LoginPage />} />
-        <Route path="/register"   element={<RegisterPage />} />
-        <Route path="/verify-email" element={<VerifyEmailPage />} />
-        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/login"      element={<GuestRoute><LoginPage /></GuestRoute>} />
+        <Route path="/register"   element={<GuestRoute><RegisterPage /></GuestRoute>} />
+        <Route path="/verify-email" element={<GuestRoute><VerifyEmailPage /></GuestRoute>} />
+        <Route path="/forgot-password" element={<GuestRoute><ForgotPasswordPage /></GuestRoute>} />
         <Route path="/oauth-success" element={<OAuthSuccessPage />} />
         <Route path="/contact"    element={<ContactPage />} />
 
