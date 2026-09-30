@@ -1,10 +1,36 @@
 import express from 'express';
 import mongoose from 'mongoose';
 import axios from 'axios';
+import Fuse from 'fuse.js';
+import { GoogleGenAI } from '@google/genai';
 import CourseModel from '../../../course-service/src/models/Course.js';
 import { successResponse, HTTP_STATUS } from '../../../../shared/utils/apiResponse.js';
+import redisClient, { getCache, setCache } from '../../../../shared/utils/cache.js';
 
 const router = express.Router();
+
+// ── Fault Tolerance: Exponential Backoff Wrapper ────────────────
+// LLM APIs are notorious for 429 (Too Many Requests) or 503 errors.
+// This wrapper automatically retries failed calls before giving up,
+// ensuring a seamless experience for students during traffic spikes.
+const withRetry = async (fn, maxRetries = 3) => {
+  let attempt = 0;
+  while (attempt < maxRetries) {
+    try {
+      return await fn();
+    } catch (err) {
+      if (err.status === 429 || err.status >= 500) {
+        attempt++;
+        if (attempt >= maxRetries) throw err;
+        const delay = Math.pow(2, attempt) * 1000;
+        console.warn(`AI API failed (${err.status}). Retrying in ${delay}ms...`);
+        await new Promise((r) => setTimeout(r, delay));
+      } else {
+        throw err;
+      }
+    }
+  }
+};
 
 // ── Search Courses ─────────────────────────────────────────────
 router.get('/', async (req, res, next) => {
@@ -14,9 +40,18 @@ router.get('/', async (req, res, next) => {
     const filter = { status: 'published' };
 
     // Full-text search
-    if (q) filter.$text = { $search: q };
+    if (q) {
+      filter.$text = { $search: q };
+
+      // ── Search Analytics (Trending Searches) ────────────────
+      // Every time a user searches for a term, increment its score in a Redis Sorted Set.
+      // This is exactly how Amazon/Udemy build their "Trending Searches" dropdowns.
+      if (redisClient) {
+        redisClient.zincrby('search:trending', 1, q.toLowerCase().trim()).catch(() => { });
+      }
+    }
     if (category) filter.category = category;
-    if (level)    filter.level    = level;
+    if (level) filter.level = level;
     if (minPrice || maxPrice) {
       filter.price = {};
       if (minPrice) filter.price.$gte = Number(minPrice);
@@ -26,9 +61,9 @@ router.get('/', async (req, res, next) => {
     // Sort options
     let sortObj = {};
     if (sort === 'relevance' && q) sortObj = { score: { $meta: 'textScore' } };
-    else if (sort === 'newest')    sortObj = { createdAt: -1 };
-    else if (sort === 'popular')   sortObj = { enrolledCount: -1 };
-    else if (sort === 'rating')    sortObj = { rating: -1 };
+    else if (sort === 'newest') sortObj = { createdAt: -1 };
+    else if (sort === 'popular') sortObj = { enrolledCount: -1 };
+    else if (sort === 'rating') sortObj = { rating: -1 };
     else if (sort === 'price-asc') sortObj = { price: 1 };
     else if (sort === 'price-desc') sortObj = { price: -1 };
 
@@ -47,6 +82,20 @@ router.get('/', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// ── Get Trending Searches ──────────────────────────────────────
+// Returns the top 5 most searched terms globally (from Redis)
+router.get('/trending', async (req, res, next) => {
+  try {
+    if (!redisClient) {
+      return successResponse(res, HTTP_STATUS.OK, 'Trending searches', []);
+    }
+
+    // ZREVRANGE returns elements ordered from highest to lowest score
+    const trending = await redisClient.zrevrange('search:trending', 0, 4);
+    return successResponse(res, HTTP_STATUS.OK, 'Trending searches fetched', trending);
+  } catch (err) { next(err); }
+});
+
 // ── AI Chatbot Endpoint ───────────────────────────────────────
 router.post('/ai/chat', async (req, res, next) => {
   try {
@@ -61,8 +110,11 @@ router.post('/ai/chat', async (req, res, next) => {
     }
 
     const systemInstruction = "You are EduBot, an AI assistant for the 'EduStream' e-learning platform. Be helpful, concise, and friendly. Answer questions about courses, web development, coding, UI/UX, and platform features (like wishlist, dark mode, certificates). Do not answer completely unrelated questions. Keep responses under 4 sentences.";
-    
-    // Format messages for Gemini REST API
+
+    // SDK Initialization
+    const ai = new GoogleGenAI({ apiKey });
+
+    // Format messages for SDK
     const contents = [
       { role: 'user', parts: [{ text: systemInstruction }] },
       { role: 'model', parts: [{ text: 'Understood. I am EduBot.' }] },
@@ -72,19 +124,19 @@ router.post('/ai/chat', async (req, res, next) => {
       }))
     ];
 
-    const response = await axios.post(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-      { contents, generationConfig: { maxOutputTokens: 250, temperature: 0.7 } },
-      { headers: { 'Content-Type': 'application/json' } }
-    );
+    // Enterprise-grade call with retries
+    const response = await withRetry(() => ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents,
+      config: { maxOutputTokens: 250, temperature: 0.7 }
+    }));
 
-    const responseText = response.data.candidates?.[0]?.content?.parts?.[0]?.text || "I didn't quite get that.";
+    const responseText = response.text || "I didn't quite get that.";
 
     return successResponse(res, HTTP_STATUS.OK, 'AI Response', { text: responseText });
   } catch (err) {
-    console.error('AI Error:', err.response?.data || err.message);
-    const msg = err.response?.data?.error?.message || err.message;
-    return res.status(500).json({ success: false, message: msg });
+    console.error('AI Error:', err.message);
+    return res.status(500).json({ success: false, message: 'Failed to generate AI response' });
   }
 });
 
@@ -97,6 +149,14 @@ router.post('/ai/generate-quiz', async (req, res, next) => {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) return res.status(500).json({ message: 'GEMINI_API_KEY is not configured' });
 
+    // ── AI Cache: Save Money & Time ───────────────────────────
+    // If 100 students ask for the same quiz, we only hit the Gemini API once.
+    const cacheKey = `ai:quiz:${courseId}`;
+    const cachedQuiz = await getCache(cacheKey);
+    if (cachedQuiz) {
+      return successResponse(res, HTTP_STATUS.OK, 'Quiz generated (Cached)', { quiz: cachedQuiz });
+    }
+
     const course = await CourseModel.findById(courseId).select('title description requirements');
     if (!course) return res.status(404).json({ message: 'Course not found' });
 
@@ -104,7 +164,7 @@ router.post('/ai/generate-quiz', async (req, res, next) => {
 Description: ${course.description}
 Requirements: ${course.requirements.join(', ')}
 
-Return ONLY a valid JSON array of objects. Do NOT include markdown formatting like \`\`\`json or \`\`\`. 
+Return a JSON array of objects.
 Each object must have this exact structure:
 {
   "question": "The question text",
@@ -112,26 +172,25 @@ Each object must have this exact structure:
   "correctAnswer": "The exact string of the correct option"
 }`;
 
-    const contents = [{ role: 'user', parts: [{ text: prompt }] }];
-    
-    const response = await axios.post(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-      { contents, generationConfig: { temperature: 0.2 } },
-      { headers: { 'Content-Type': 'application/json' } }
-    );
+    const ai = new GoogleGenAI({ apiKey });
 
-    let responseText = response.data.candidates?.[0]?.content?.parts?.[0]?.text;
-    
-    // Clean up potential markdown blocks if Gemini includes them despite instructions
-    responseText = responseText.replace(/```json/gi, '').replace(/```/g, '').trim();
+    // ── Structured Output (JSON Mode) ─────────────────────────
+    // Instead of Regex hacking, we FORCE the model to return JSON
+    const response = await withRetry(() => ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+      config: { temperature: 0.2, responseMimeType: "application/json" }
+    }));
 
-    const quizData = JSON.parse(responseText);
+    const quizData = JSON.parse(response.text);
+
+    // Cache the AI output for 24 hours
+    await setCache(cacheKey, quizData, 24 * 60 * 60);
 
     return successResponse(res, HTTP_STATUS.OK, 'Quiz generated', { quiz: quizData });
   } catch (err) {
-    console.error('AI Quiz Error:', err.response?.data || err.message);
-    const msg = err.response?.data?.error?.message || err.message;
-    return res.status(500).json({ success: false, message: msg });
+    console.error('AI Quiz Error:', err.message);
+    return res.status(500).json({ success: false, message: 'Failed to generate quiz' });
   }
 });
 
@@ -143,33 +202,23 @@ const streamGeminiSSE = async (prompt, res, apiKey, temperature = 0.7) => {
   res.flushHeaders();
 
   try {
-    const response = await axios.post(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse&key=${apiKey}`,
-      { contents: [{ role: 'user', parts: [{ text: prompt }] }], generationConfig: { temperature } },
-      { headers: { 'Content-Type': 'application/json' }, responseType: 'stream', timeout: 15000 }
-    );
+    const ai = new GoogleGenAI({ apiKey });
+    
+    // The official SDK natively handles SSE parsing and reconnects!
+    const stream = await withRetry(() => ai.models.generateContentStream({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+      config: { temperature }
+    }));
 
-    response.data.on('data', (chunk) => {
-      // Chunk is a Buffer containing SSE data (data: {...}\n\n)
-      const lines = chunk.toString().split('\n');
-      for (const line of lines) {
-        if (line.startsWith('data: ') && line.trim() !== 'data: [DONE]') {
-          try {
-            const data = JSON.parse(line.substring(6));
-            const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (text) {
-              res.write(`data: ${JSON.stringify({ text })}\n\n`);
-            }
-          } catch (e) { /* Ignore partial JSON parse errors */ }
-        }
+    for await (const chunk of stream) {
+      if (chunk.text) {
+        res.write(`data: ${JSON.stringify({ text: chunk.text })}\n\n`);
       }
-    });
+    }
 
-    response.data.on('end', () => {
-      res.write('data: [DONE]\n\n');
-      res.end();
-    });
-
+    res.write('data: [DONE]\n\n');
+    res.end();
   } catch (err) {
     console.error('Gemini Stream Error:', err.message);
     res.write(`data: ${JSON.stringify({ error: 'Failed to generate content' })}\n\n`);
@@ -223,22 +272,32 @@ router.post('/ai/generate-roadmap', async (req, res, next) => {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) return res.status(500).json({ message: 'GEMINI_API_KEY is not configured' });
 
+    // UPDATE: Enforced double line breaks (blank lines) and changed steps to H3 (###)
     const prompt = `Act as a career counselor and technical mentor. Create a learning roadmap for a student whose goal is: "${goal}".
-Format your response EXACTLY in this Markdown structure, using no other main headings:
+Format your response EXACTLY in this strict Markdown structure. 
+CRITICAL: You MUST leave a blank empty line between EVERY single element (the heading, duration, description, and tip) so the frontend Markdown parser renders them correctly.
 
 # Roadmap: Your Learning Path
+
 (A very short 1-2 sentence intro)
 
-## Step 1: [Title]
+### Step 1: [Title]
+
 ⏱️ **Duration:** [Time]
+
 [Short concise description of what to do]
+
 > 💡 **Pro Tip:** [Actionable tip]
 
-## Step 2: [Title]
-⏱️ **Duration:** [Time]
-...
+### Step 2: [Title]
 
-Continue this for exactly 4 to 6 actionable milestones. Do not include summary or concluding paragraphs. Keep it clean and highly structured.`;
+⏱️ **Duration:** [Time]
+
+[Short concise description of what to do]
+
+> 💡 **Pro Tip:** [Actionable tip]
+
+Continue this pattern for exactly 4 to 6 actionable milestones. Do not include summary or concluding paragraphs. Keep it clean and highly structured.`;
 
     await streamGeminiSSE(prompt, res, apiKey, 0.7);
   } catch (err) {
@@ -247,28 +306,48 @@ Continue this for exactly 4 to 6 actionable milestones. Do not include summary o
   }
 });
 
-// ── Get Categories ─────────────────────────────────────────────
+// ── Get Categories (Cached) ────────────────────────────────────
 router.get('/categories', async (req, res, next) => {
   try {
+    const cacheKey = 'search:categories';
+    const cached = await getCache(cacheKey);
+    if (cached) return successResponse(res, HTTP_STATUS.OK, 'Categories fetched (cached)', cached);
+
     const categories = await CourseModel.distinct('category', { status: 'published' });
+
+    await setCache(cacheKey, categories, 24 * 60 * 60); // Cache for 24h
     return successResponse(res, HTTP_STATUS.OK, 'Categories fetched', categories);
   } catch (err) { next(err); }
 });
 
-// ── Autocomplete ───────────────────────────────────────────────
+// ── Autocomplete (Smart Hybrid: Fuse.js + Redis) ───────────────
+// Fixes the "Keystroke Crusher" and handles typos gracefully!
 router.get('/autocomplete', async (req, res, next) => {
   try {
     const { q } = req.query;
     if (!q || q.length < 2) return successResponse(res, HTTP_STATUS.OK, 'Suggestions', []);
 
-    const courses = await CourseModel
-      .find({ title: { $regex: q, $options: 'i' }, status: 'published' })
-      .select('title category')
-      .limit(8);
+    // 1. Fetch all course titles from Redis (or DB if cache miss)
+    const cacheKey = 'search:all_courses_lite';
+    let allCourses = await getCache(cacheKey);
 
-    return successResponse(res, HTTP_STATUS.OK, 'Suggestions', courses.map((c) => ({
-      id: c._id, title: c.title, category: c.category,
-    })));
+    if (!allCourses) {
+      const courses = await CourseModel.find({ status: 'published' }).select('title category');
+      allCourses = courses.map(c => ({ id: c._id, title: c.title, category: c.category }));
+      await setCache(cacheKey, allCourses, 5 * 60); // Cache for 5 minutes
+    }
+
+    // 2. Perform in-memory fuzzy search using Fuse.js
+    // This handles typos (e.g., "jvascript" -> "javascript") instantly without hitting MongoDB!
+    const fuse = new Fuse(allCourses, {
+      keys: ['title', 'category'],
+      threshold: 0.3, // 0.0 is perfect match, 1.0 is match anything
+      includeScore: true,
+    });
+
+    const results = fuse.search(q).slice(0, 8).map(result => result.item);
+
+    return successResponse(res, HTTP_STATUS.OK, 'Suggestions', results);
   } catch (err) { next(err); }
 });
 

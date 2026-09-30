@@ -53,6 +53,11 @@ passport.use(
         let user = await User.findOne({ email });
 
         if (user) {
+          // If a user tries to login with a different role, block them
+          if (user.role !== 'admin' && user.role !== requestedRole) {
+            return done(null, false, { message: `Account exists as ${user.role}. Please select the correct role to login.` });
+          }
+
           // Existing user - googleId update karo agar nahi hai
           if (!user.googleId) {
             user.googleId = profile.id;
@@ -73,14 +78,16 @@ passport.use(
             });
           }
         } else {
-          // Naya user create karo
+          // Naya user create karo - role validation (prevent admin injection)
+          const validRole = ['student', 'instructor'].includes(requestedRole) ? requestedRole : 'student';
+          
           user = await User.create({
             name: profile.displayName,
             email,
             googleId: profile.id,
             avatar,
             isEmailVerified: true,
-            role: requestedRole,
+            role: validRole,
           });
 
           await UserProfile.create({
@@ -96,11 +103,29 @@ passport.use(
         const jwtAccessToken = generateAccessToken(payload);
         const jwtRefreshToken = generateRefreshToken(payload);
 
-        user.cleanExpiredTokens();
-        user.refreshTokens.push({ token: jwtRefreshToken });
-        await user.save({ validateBeforeSave: false });
+        // If user has 2FA enabled, do not persist session until 2FA is cleared
+        if (!user.twoFactorEnabled) {
+          const clientIp = req.headers['x-forwarded-for']?.split(',')[0].trim() || req.ip || '127.0.0.1';
+          const userAgent = req.headers['user-agent'] || 'Web Browser';
 
-        return done(null, { user, accessToken: jwtAccessToken, refreshToken: jwtRefreshToken });
+          user.cleanExpiredTokens();
+          user.refreshTokens.push({
+            token: jwtRefreshToken,
+            device: userAgent,
+            ip: clientIp,
+            lastActive: new Date(),
+          });
+          user.loginHistory.unshift({ ip: clientIp, device: userAgent, status: 'success' });
+          if (user.loginHistory.length > 50) user.loginHistory.pop();
+          await user.save({ validateBeforeSave: false });
+        }
+
+        return done(null, {
+          user,
+          accessToken: jwtAccessToken,
+          refreshToken: jwtRefreshToken,
+          twoFactorEnabled: user.twoFactorEnabled,
+        });
       } catch (err) {
         return done(err, null);
       }

@@ -1,4 +1,5 @@
 import { v2 as cloudinary } from 'cloudinary';
+import sharp from 'sharp';
 import { AppError } from '../../../../shared/middlewares/errorHandler.js';
 import { successResponse, HTTP_STATUS } from '../../../../shared/utils/apiResponse.js';
 
@@ -92,6 +93,84 @@ export const deleteMedia = async (req, res, next) => {
     return successResponse(res, HTTP_STATUS.OK, 'Media deleted');
   } catch (err) { next(err); }
 };
+
+// ── Smart Image Upload with Auto-Compression (using Sharp) ─────
+// WHY: A user might upload a 10MB raw camera photo as their course
+// thumbnail. Serving 10MB images to 10,000 users wastes bandwidth
+// and slows down the page. We compress it BEFORE uploading.
+//
+// HOW: We use the 'sharp' library (the fastest Node.js image processor)
+// to: 1) Resize to max 1280px width, 2) Convert to WebP format (50%
+// smaller than JPEG at same quality), 3) Then upload to Cloudinary.
+export const compressAndUploadImage = async (req, res, next) => {
+  try {
+    if (!req.file) throw new AppError('Please upload an image', 400);
+
+    const originalSizeKB = Math.round(req.file.buffer.length / 1024);
+
+    // ── Step 1: Compress using Sharp ──────────────────────────
+    const compressedBuffer = await sharp(req.file.buffer)
+      .resize({ width: 1280, withoutEnlargement: true }) // Max 1280px wide, never upscale
+      .webp({ quality: 82 })                             // Convert to WebP at 82% quality
+      .toBuffer();
+
+    const compressedSizeKB = Math.round(compressedBuffer.length / 1024);
+    const savingPercent = Math.round((1 - compressedSizeKB / originalSizeKB) * 100);
+
+    // ── Step 2: Upload the COMPRESSED buffer to Cloudinary ────
+    const uploadResult = await new Promise((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream(
+        { folder: 'edustream/images', resource_type: 'image', format: 'webp' },
+        (error, result) => (error ? reject(new AppError('Image upload failed', 500)) : resolve(result))
+      );
+      stream.end(compressedBuffer);
+    });
+
+    return successResponse(res, HTTP_STATUS.OK, 'Image uploaded & compressed', {
+      imageUrl:      uploadResult.secure_url,
+      publicId:      uploadResult.public_id,
+      originalSizeKB,
+      compressedSizeKB,
+      savedPercent:  `${savingPercent}%`, // e.g., "68%" — great talking point!
+    });
+  } catch (err) { next(err); }
+};
+
+// ── Generate Signed URL for Private Video Access ───────────────
+// WHY: If a student buys a course, the video URL should NOT be shareable.
+// A plain Cloudinary URL (https://res.cloudinary.com/...) is public
+// forever — anyone with the link can watch. This is a major security flaw.
+//
+// HOW: We generate a SIGNED URL that is only valid for 2 hours.
+// After 2 hours, the URL expires and becomes invalid.
+// Each time the student wants to watch, our backend generates a fresh
+// signed URL — so the link can't be shared or hotlinked.
+export const generateSignedVideoUrl = async (req, res, next) => {
+  try {
+    const userId = req.headers['x-user-id'];
+    const { publicId } = req.body;
+
+    if (!userId) throw new AppError('Unauthorized', 401);
+    if (!publicId) throw new AppError('publicId is required', 400);
+
+    // Generate a signed URL valid for 2 hours (7200 seconds)
+    const expiresAt = Math.round(Date.now() / 1000) + 7200;
+
+    const signedUrl = cloudinary.url(publicId, {
+      resource_type: 'video',
+      sign_url:      true,      // This is the magic flag
+      expires_at:    expiresAt, // Unix timestamp for expiry
+      secure:        true,
+    });
+
+    return successResponse(res, HTTP_STATUS.OK, 'Signed URL generated', {
+      signedUrl,
+      expiresIn: '2 hours',
+      expiresAt: new Date(expiresAt * 1000).toISOString(),
+    });
+  } catch (err) { next(err); }
+};
+
 
 // ── Get Video Signature (for direct frontend upload) ──────────
 // Frontend directly Cloudinary pe upload kare (gateway ke bina)

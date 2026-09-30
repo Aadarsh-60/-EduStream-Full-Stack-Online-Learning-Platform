@@ -97,8 +97,8 @@ function StudentDashboard({ user }) {
       notificationAPI.getAll(),
       userAPI.getMyProfile(),
     ]).then(([e, n, p]) => {
-      setEnrolled(e.data.data || []);
-      setNotifications(n.data.data || []);
+      setEnrolled(Array.isArray(e.data.data) ? e.data.data : []);
+      setNotifications(Array.isArray(n.data.data?.notifications) ? n.data.data.notifications : []);
       // Wishlist fetching is now handled by the other useEffect listening to profile
     }).catch(() => { }).finally(() => setLoading(false));
   }, []);
@@ -387,8 +387,8 @@ function InstructorDashboard({ user }) {
       notificationAPI.getAll()
     ])
       .then(([c, n]) => {
-        setCourses(c.data.data || []);
-        setNotifications(n.data.data || []);
+        setCourses(Array.isArray(c.data.data) ? c.data.data : []);
+        setNotifications(Array.isArray(n.data.data?.notifications) ? n.data.data.notifications : []);
       })
       .catch(() => { })
       .finally(() => setLoading(false));
@@ -587,9 +587,9 @@ function AdminDashboard({ user }) {
       courseAPI.getAll({ limit: 100 }),
       notificationAPI.getAll()
     ]).then(([uRes, cRes, nRes]) => {
-      setUsersList(uRes.data.data.users || []);
-      setCoursesList(cRes.data.data.courses || []);
-      setNotifications(nRes.data.data || []);
+      setUsersList(Array.isArray(uRes.data.data?.users) ? uRes.data.data.users : []);
+      setCoursesList(Array.isArray(cRes.data.data?.courses) ? cRes.data.data.courses : []);
+      setNotifications(Array.isArray(nRes.data.data?.notifications) ? nRes.data.data.notifications : []);
     }).catch(() => { })
       .finally(() => setLoading(false));
   };

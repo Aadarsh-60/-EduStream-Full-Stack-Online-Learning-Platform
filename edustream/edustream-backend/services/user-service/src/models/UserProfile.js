@@ -19,14 +19,10 @@ const userProfileSchema = new mongoose.Schema(
     linkedin: { type: String, default: '' },
     twitter:  { type: String, default: '' },
 
-    // Student ka enrolled courses list
-    enrolledCourses: [
-      {
-        courseId:   { type: mongoose.Schema.Types.ObjectId },
-        enrolledAt: { type: Date, default: Date.now },
-        progress:   { type: Number, default: 0, min: 0, max: 100 },
-      },
-    ],
+    // Note: enrolledCourses was removed!
+    // The Course Service (Enrollment collection) is the Single Source of Truth.
+    // Tracking high-frequency data (video progress) inside the master profile document 
+    // causes severe write-locks and document fragmentation.
 
     // Student ka wishlist
     wishlist: [{ type: mongoose.Schema.Types.ObjectId }],

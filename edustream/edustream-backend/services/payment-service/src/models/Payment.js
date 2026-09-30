@@ -19,8 +19,12 @@ const paymentSchema = new mongoose.Schema(
       default: 'pending',
     },
 
-    // Idempotency - same webhook dobara process na ho
+    // Idempotency — same webhook must not be processed twice
     webhookProcessed: { type: Boolean, default: false },
+
+    // Refund tracking
+    refundId:     { type: String, default: null },
+    refundReason: { type: String, default: null },
   },
   { timestamps: true }
 );

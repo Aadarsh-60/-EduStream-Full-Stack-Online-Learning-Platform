@@ -1,19 +1,33 @@
 import { v2 as cloudinary } from 'cloudinary';
 import UserProfile from '../models/UserProfile.js';
+import Enrollment from '../../../course-service/src/models/Enrollment.js';
 import { processAvatar } from '../middlewares/upload.js';
 import { AppError } from '../../../../shared/middlewares/errorHandler.js';
 import { successResponse, HTTP_STATUS } from '../../../../shared/utils/apiResponse.js';
+import { getCache, setCache, invalidateCache } from '../../../../shared/utils/cache.js';
 
 // Gateway headers se user info milti hai
 const getUserId = (req) => req.headers['x-user-id'];
 const getUserRole = (req) => req.headers['x-user-role'];
 
-// ── Get My Profile ─────────────────────────────────────────────
+// ── Get My Profile (Cached) ────────────────────────────────────
 export const getMyProfile = async (req, res, next) => {
   try {
     const userId = getUserId(req);
+    
+    // Check Cache
+    const cacheKey = `user_profile:${userId}`;
+    const cachedProfile = await getCache(cacheKey);
+    if (cachedProfile) {
+      return successResponse(res, HTTP_STATUS.OK, 'Profile fetched (cached)', cachedProfile);
+    }
+
     const profile = await UserProfile.findOne({ userId });
     if (!profile) throw new AppError('Profile not found', 404);
+    
+    // Cache for 1 hour
+    await setCache(cacheKey, profile, 60 * 60);
+    
     return successResponse(res, HTTP_STATUS.OK, 'Profile fetched', profile);
   } catch (err) { next(err); }
 };
@@ -52,6 +66,10 @@ export const updateProfile = async (req, res, next) => {
       { new: true, runValidators: true }
     );
     if (!profile) throw new AppError('Profile not found', 404);
+    
+    // Invalidate Cache
+    await invalidateCache(`user_profile:${userId}`);
+    
     return successResponse(res, HTTP_STATUS.OK, 'Profile updated', profile);
   } catch (err) { next(err); }
 };
@@ -80,15 +98,25 @@ export const uploadAvatarHandler = async (req, res, next) => {
       stream.end(processedBuffer);
     });
 
-    // Step 3: DB update
-    const profile = await UserProfile.findOneAndUpdate(
-      { userId },
-      { avatar: { url: uploadResult.secure_url, publicId: uploadResult.public_id } },
-      { new: true }
-    );
-    if (!profile) throw new AppError('Profile not found', 404);
+    // Step 3: DB update (With Compensating Action for Fault Tolerance)
+    try {
+      const profile = await UserProfile.findOneAndUpdate(
+        { userId },
+        { avatar: { url: uploadResult.secure_url, publicId: uploadResult.public_id } },
+        { new: true }
+      );
+      if (!profile) throw new AppError('Profile not found', 404);
 
-    return successResponse(res, HTTP_STATUS.OK, 'Avatar uploaded', { avatarUrl: uploadResult.secure_url });
+      // Invalidate Cache
+      await invalidateCache(`user_profile:${userId}`);
+
+      return successResponse(res, HTTP_STATUS.OK, 'Avatar uploaded', { avatarUrl: uploadResult.secure_url });
+    } catch (dbError) {
+      // 🚨 COMPENSATING ACTION: DB failed, so delete the orphaned image from Cloudinary!
+      console.error('DB Update failed after Cloudinary upload. Rolling back image...');
+      await cloudinary.uploader.destroy(uploadResult.public_id).catch(() => {});
+      throw dbError; // rethrow to be caught by outer catch block
+    }
   } catch (err) { next(err); }
 };
 
@@ -105,38 +133,15 @@ export const deleteAvatar = async (req, res, next) => {
     profile.avatar = { url: null, publicId: null };
     await profile.save();
 
+    await invalidateCache(`user_profile:${userId}`);
+
     return successResponse(res, HTTP_STATUS.OK, 'Avatar removed');
   } catch (err) { next(err); }
 };
 
-// ── Get Enrolled Courses ───────────────────────────────────────
-export const getEnrolledCourses = async (req, res, next) => {
-  try {
-    const userId = getUserId(req);
-    const profile = await UserProfile.findOne({ userId }).select('enrolledCourses');
-    if (!profile) throw new AppError('Profile not found', 404);
-    return successResponse(res, HTTP_STATUS.OK, 'Enrolled courses', profile.enrolledCourses);
-  } catch (err) { next(err); }
-};
-
-// ── Update Course Progress ─────────────────────────────────────
-export const updateProgress = async (req, res, next) => {
-  try {
-    const userId = getUserId(req);
-    const { courseId, progress } = req.body;
-
-    const profile = await UserProfile.findOne({ userId });
-    if (!profile) throw new AppError('Profile not found', 404);
-
-    const enrollment = profile.enrolledCourses.find((e) => e.courseId.toString() === courseId);
-    if (!enrollment) throw new AppError('Not enrolled in this course', 403);
-
-    enrollment.progress = progress;
-    await profile.save();
-
-    return successResponse(res, HTTP_STATUS.OK, 'Progress updated', { progress });
-  } catch (err) { next(err); }
-};
+// ── NOTE: getEnrolledCourses and updateProgress have been REMOVED! ──
+// Why? To adhere to microservices boundaries. The Course Service (Enrollment collection)
+// is the absolute Single Source of Truth for progress. We do not duplicate it here.
 
 // ── Admin: Get All Users ───────────────────────────────────────
 export const getAllUsers = async (req, res, next) => {
@@ -158,7 +163,7 @@ export const getAllUsers = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-// ── Toggle Wishlist ────────────────────────────────────────────
+// ── Toggle Wishlist (Atomic / Race Condition Free) ─────────────
 export const toggleWishlist = async (req, res, next) => {
   try {
     const userId = getUserId(req);
@@ -166,17 +171,32 @@ export const toggleWishlist = async (req, res, next) => {
 
     if (!courseId) throw new AppError('Course ID required', 400);
 
+    // Fetch just to see if it exists in the array
     const profile = await UserProfile.findOne({ userId });
     if (!profile) throw new AppError('Profile not found', 404);
 
-    const index = profile.wishlist.indexOf(courseId);
-    if (index === -1) {
-      profile.wishlist.push(courseId);
-    } else {
-      profile.wishlist.splice(index, 1);
-    }
+    const isInWishlist = profile.wishlist.includes(courseId);
 
-    await profile.save();
-    return successResponse(res, HTTP_STATUS.OK, 'Wishlist updated', profile.wishlist);
+    // ATOMIC UPDATE: Prevents Race Conditions if user spam-clicks the button
+    const updatedProfile = await UserProfile.findOneAndUpdate(
+      { userId },
+      isInWishlist ? { $pull: { wishlist: courseId } } : { $addToSet: { wishlist: courseId } },
+      { new: true }
+    );
+
+    // Invalidate cache since wishlist changed
+    await invalidateCache(`user_profile:${userId}`);
+
+    return successResponse(res, HTTP_STATUS.OK, 'Wishlist updated', updatedProfile.wishlist);
+  } catch (err) { next(err); }
+};
+
+// ── Get My Enrolled Courses ───────────────────────────────
+export const getMyEnrolledCourses = async (req, res, next) => {
+  try {
+    const userId = getUserId(req);
+    if (!userId) throw new AppError('Unauthorized', 401);
+    const enrollments = await Enrollment.find({ userId }).sort({ createdAt: -1 });
+    return successResponse(res, HTTP_STATUS.OK, 'Enrolled courses fetched', enrollments);
   } catch (err) { next(err); }
 };

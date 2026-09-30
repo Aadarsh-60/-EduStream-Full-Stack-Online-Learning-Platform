@@ -39,10 +39,24 @@
 
 ---
 
+## 🆕 Recent Updates & Fixes
+
+*   **Admin Contact Routing:** Fixed a bug where Contact Admin emails were routing to the sender. Emails now route correctly to the designated `ADMIN_EMAIL`.
+*   **Duplicate Review Prevention:** Fixed an issue where the "Leave a Review" form persisted after submission. The UI now correctly detects if a student has already reviewed a course and displays an "✏️ Edit Your Review" form instead.
+*   **Dashboard Stability:** Resolved a crash caused by improper parsing of the notifications API response. Dashboards now correctly extract and map the notifications array.
+*   **Server Stability & Imports:** Corrected multiple deep relative import paths (e.g., `../../../course-service/src/models/Course.js`) to prevent `ERR_MODULE_NOT_FOUND` server crashes.
+*   **Course Progress Tracking:** Updated the frontend to call the correct `courseAPI.updateProgress` route, ensuring student progress is saved when quizzes are completed.
+*   **Payment Webhooks:** Replaced internal `axios` calls within the payment service with direct Mongoose model operations to eliminate `axios is not defined` errors during webhook processing.
+*   **Notification Latency:** Tuned RabbitMQ prefetch limits in `email.worker.js` to process messages individually, eliminating batch buffering delays.
+
+---
+
 ## ✨ Features
 
 ### 🔒 Authentication & Security
 - **JWT Authentication** with secure token rotation (Access & Refresh tokens)
+- **Two-Factor Authentication (2FA)** via TOTP (Authenticator App)
+- **Device Session Management** — Track active logins and remotely revoke unknown devices via Email OTP verification
 - **Google OAuth 2.0** — Quick register and login
 - **Role-Based Access Control (RBAC)** — Admin, Instructor, and Student roles
 - **Helmet.js & Rate Limiting** for robust backend security
@@ -51,8 +65,13 @@
 - **Interactive Video Player** with progress tracking
 - **Automated PDF Certificates** generated via `jsPDF` upon 100% completion
 - **Course Wishlist** to save favorite courses
-- **Ratings & Reviews** for enrolled courses
+- **Advanced Ratings & Reviews System** with duplicate prevention and dynamic course rating recalculation
 - **Q&A Forum** to ask instructors questions
+
+### 🔍 Search & Discovery
+- **Advanced Course Search** with category filtering and pagination
+- **Smart Autocomplete** to quickly find courses by title or keyword
+- **Trending & Popular Courses** discovery algorithms
 
 ### 👨‍🏫 Instructor Module
 - **Course Builder Dashboard** to create sections and markdown-supported lectures
@@ -61,12 +80,15 @@
 
 ### 💳 Payments & Notifications
 - **Razorpay Integration** for end-to-end secure course purchases
-- **Real-time Notifications** for enrollments and platform updates
+- **Event-Driven Notifications** powered by **RabbitMQ** for fully decoupled, high-performance background processing (Emails, Payment Success)
+- **Centralized Messaging** utilizing `@sumitshresht/notificationhub-sdk`
+- **Real-time UI Alerts** for enrollments and platform updates via Socket.io
 
 ### 🤖 AI Integration (Powered by Google Gemini)
 - **EduBot Chatbot:** Floating AI assistant for instant course and platform queries via real-time Server-Sent Events (SSE) streaming.
 - **AI Study Notes:** Generates custom, topic-specific markdown study notes for any course.
 - **AI Quizzes:** Dynamically generates exams based on course curriculum to test knowledge.
+- **AI Learning Roadmaps:** Generates personalized, step-by-step learning paths based on student goals.
 
 ---
 
@@ -79,6 +101,7 @@
 | **Vite 5** | Lightning-fast build tool & dev server |
 | **React Router v6** | Client-side routing & navigation |
 | **Axios** | HTTP client for API communication |
+| **Recharts** | Interactive charts for instructor/admin analytics |
 | **html2canvas + jsPDF** | Client-side PDF Certificate generation |
 | **Lucide React** | Modern icon library |
 
@@ -87,10 +110,13 @@
 |---|---|
 | **Node.js 18+** | JavaScript runtime |
 | **Express.js 4** | Web application framework (Modular Monolith) |
+| **RabbitMQ** | Asynchronous message broker for event-driven workers |
+| **Redis** | High-performance caching & rate-limiting (`ioredis`) |
 | **Server-Sent Events**| Real-time streaming for AI features |
 | **MongoDB + Mongoose** | NoSQL database & ODM |
-| **JWT** | Stateless authentication |
+| **JWT & TOTP** | Stateless authentication & 2FA security |
 | **Razorpay SDK** | Payment gateway integration |
+| **Notification Hub**| Centralized multichannel messaging SDK |
 | **Cloudinary** | Cloud storage for video and image assets |
 
 ---
@@ -169,19 +195,31 @@ npm run dev
 
 ### Backend (`edustream-backend/.env`)
 ```env
-# --- Server ---
+# --- App & Server ---
 PORT=5000
 NODE_ENV=development
 CLIENT_URL=http://localhost:5173
 
-# --- MongoDB ---
+# --- Databases & Caching ---
 MONGO_URI=mongodb://localhost:27017/edustream_db
+REDIS_URL=redis://localhost:6379
 
 # --- JWT Auth ---
-JWT_SECRET=your_jwt_secret_key_here
-JWT_EXPIRE=1d
+ACCESS_TOKEN_SECRET=your_jwt_secret_key_here
+ACCESS_TOKEN_EXPIRY=15m
 REFRESH_TOKEN_SECRET=your_refresh_secret
 REFRESH_TOKEN_EXPIRE=7d
+
+# --- Event Bus & Notifications ---
+RABBITMQ_URL=amqp://localhost
+NOTIFICATION_HUB_API_KEY=your_nh_api_key
+NOTIFICATION_HUB_API_SECRET=your_nh_api_secret
+
+# --- Email (SMTP) ---
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your_email@gmail.com
+SMTP_PASS=your_app_password
 
 # --- Google OAuth ---
 GOOGLE_CLIENT_ID=your_google_client_id

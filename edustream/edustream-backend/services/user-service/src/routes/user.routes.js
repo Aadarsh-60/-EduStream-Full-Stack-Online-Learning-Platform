@@ -1,7 +1,7 @@
 import express from 'express';
 import {
   getMyProfile, getPublicProfile, createProfile, updateProfile,
-  uploadAvatarHandler, deleteAvatar, getEnrolledCourses, updateProgress, getAllUsers, toggleWishlist
+  uploadAvatarHandler, deleteAvatar, getAllUsers, toggleWishlist, getMyEnrolledCourses
 } from '../controllers/user.controller.js';
 import { uploadAvatar } from '../middlewares/upload.js';
 
@@ -19,9 +19,9 @@ router.get('/profile/:userId', getPublicProfile);
 router.post('/me/avatar', uploadAvatar, uploadAvatarHandler);
 router.delete('/me/avatar', deleteAvatar);
 
-// Enrolled courses
-router.get('/me/enrolled', getEnrolledCourses);
-router.put('/me/progress', updateProgress);
+// Enrolled courses & Progress
+router.get('/me/enrolled', getMyEnrolledCourses);
+// router.put('/me/progress', updateProgress);     // Handled by Course Service now
 router.post('/me/wishlist/:courseId', toggleWishlist);
 
 // Admin

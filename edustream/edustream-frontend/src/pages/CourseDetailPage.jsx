@@ -17,6 +17,7 @@ export default function CourseDetailPage() {
 
   const [course,     setCourse]     = useState(null);
   const [reviews,    setReviews]    = useState([]);
+  const [myReview,   setMyReview]   = useState(null); // current user's own review
   const [enrolled,   setEnrolled]   = useState(false);
   const [enrollData, setEnrollData] = useState(null);
   const [loading,    setLoading]    = useState(true);
@@ -46,7 +47,7 @@ export default function CourseDetailPage() {
     setGeneratingNotes(true);
     setAiNotes('');
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('accessToken');
       const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/search/ai/generate-notes`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(token && { Authorization: `Bearer ${token}` }) },
@@ -100,7 +101,7 @@ export default function CourseDetailPage() {
 
   const handlePassQuiz = async () => {
     try {
-      await userAPI.updateProgress({ courseId: id, progress: 100 });
+      await courseAPI.updateProgress(id, { lectureId: 'quiz-pass', isCompleted: true });
       setEnrollData({ ...enrollData, progress: 100 });
       toast.success('Course passed and marked as complete!');
       setTimeout(() => window.dispatchEvent(new CustomEvent('open-certificate', { detail: course })), 800);
@@ -116,9 +117,19 @@ export default function CourseDetailPage() {
       user ? courseAPI.checkEnrollment(id) : Promise.resolve({ data: { data: { isEnrolled: false } } }),
     ]).then(([c, r, e]) => {
       setCourse(c.data.data);
-      setReviews(r.data.data?.reviews || []);
+      const fetchedReviews = r.data.data?.reviews || [];
+      setReviews(fetchedReviews);
       setEnrolled(e.data.data?.isEnrolled || false);
       setEnrollData(e.data.data?.enrollment || null);
+      // Detect if this user already submitted a review
+      if (user) {
+        const userIdStr = (user.id || user._id)?.toString();
+        const mine = fetchedReviews.find(rv => rv.userId?.toString() === userIdStr);
+        if (mine) {
+          setMyReview(mine);
+          setReviewForm({ rating: mine.rating, comment: mine.comment });
+        }
+      }
     }).catch(() => navigate('/courses'))
       .finally(() => setLoading(false));
   }, [id, user]);
@@ -127,12 +138,27 @@ export default function CourseDetailPage() {
     if (!user) { navigate('/login'); return; }
     if (enrolled) return;
 
-    const price = course.discountPrice || course.price;
-    if (price === 0) { toast.success('Enrolled (free course)!'); setEnrolled(true); return; }
+    const price = course.discountPrice ?? course.price;
+    if (price === 0) {
+      setPaying(true);
+      try {
+        await courseAPI.freeEnroll(id);
+        toast.success('🎉 Enrolled successfully in free course!');
+        setEnrolled(true);
+        // Refresh enrollment data
+        const { data } = await courseAPI.checkEnrollment(id);
+        setEnrollData(data.data?.enrollment);
+      } catch (err) {
+        toast.error(err.response?.data?.message || 'Failed to enroll');
+      } finally {
+        setPaying(false);
+      }
+      return;
+    }
 
     setPaying(true);
     try {
-      const { data } = await paymentAPI.createOrder({ courseId: id, amount: price });
+      const { data } = await paymentAPI.createOrder({ courseId: id });
       const { orderId, amount, currency, keyId } = data.data;
 
       const options = {
@@ -172,12 +198,26 @@ export default function CourseDetailPage() {
     if (!reviewForm.comment.trim()) return toast.error('Please write a comment');
     setSubmittingReview(true);
     try {
-      await reviewAPI.addReview({ courseId: id, rating: reviewForm.rating, comment: reviewForm.comment });
-      toast.success('Review submitted successfully!');
-      setReviewForm({ rating: 5, comment: '' });
-      // Fetch reviews again to show the new one
+      if (myReview) {
+        // Update existing review
+        await reviewAPI.updateReview(myReview._id, { rating: reviewForm.rating, comment: reviewForm.comment });
+        toast.success('Review updated successfully!');
+      } else {
+        // Add new review
+        await reviewAPI.addReview({ courseId: id, rating: reviewForm.rating, comment: reviewForm.comment });
+        toast.success('Review submitted successfully!');
+      }
+      // Refresh reviews list
       const r = await reviewAPI.getCourseReviews(id);
-      setReviews(r.data.data?.reviews || []);
+      const fetchedReviews = r.data.data?.reviews || [];
+      setReviews(fetchedReviews);
+      // Re-detect myReview
+      if (user) {
+        const userIdStr = (user.id || user._id)?.toString();
+        const mine = fetchedReviews.find(rv => rv.userId?.toString() === userIdStr);
+        setMyReview(mine || null);
+        if (mine) setReviewForm({ rating: mine.rating, comment: mine.comment });
+      }
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to submit review');
     } finally {
@@ -350,8 +390,10 @@ export default function CourseDetailPage() {
             {activeTab === 'reviews' && (
               <div>
                 {enrolled && (
-                  <div className="card" style={{ padding: 24, marginBottom: 24, border: '1px solid var(--indigo-dark)' }}>
-                    <h4 style={{ marginBottom: 12, fontSize: '1rem' }}>Leave a Review</h4>
+                  <div className="card" style={{ padding: 24, marginBottom: 24, border: `1px solid ${myReview ? 'var(--gold)' : 'var(--indigo-dark)'}` }}>
+                    <h4 style={{ marginBottom: 12, fontSize: '1rem' }}>
+                      {myReview ? '✏️ Edit Your Review' : 'Leave a Review'}
+                    </h4>
                     <form onSubmit={handleSubmitReview} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                       <div>
                         <label className="input-label" style={{ display: 'block', marginBottom: 8 }}>Rating</label>
@@ -371,7 +413,7 @@ export default function CourseDetailPage() {
                         <textarea className="input" rows={3} placeholder="Share your experience..." required value={reviewForm.comment} onChange={(e) => setReviewForm({ ...reviewForm, comment: e.target.value })} />
                       </div>
                       <button type="submit" className="btn btn-primary btn-sm" disabled={submittingReview} style={{ alignSelf: 'flex-start' }}>
-                        {submittingReview ? 'Submitting...' : 'Submit Review'}
+                        {submittingReview ? 'Saving...' : myReview ? 'Update Review' : 'Submit Review'}
                       </button>
                     </form>
                   </div>

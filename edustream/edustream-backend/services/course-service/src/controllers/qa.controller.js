@@ -3,7 +3,7 @@ import Enrollment from '../models/Enrollment.js';
 import Course from '../models/Course.js';
 import { successResponse, errorResponse, HTTP_STATUS } from '../../../../shared/utils/apiResponse.js';
 
-const getUserId   = (req) => req.headers['x-user-id'];
+const getUserId = (req) => req.headers['x-user-id'];
 const getUserRole = (req) => req.headers['x-user-role'];
 const getUserName = (req) => req.headers['x-user-name'] || 'User';
 
@@ -39,7 +39,7 @@ export const askQuestion = async (req, res, next) => {
     if (userRole !== 'admin') {
       const course = await Course.findById(courseId);
       if (!course) return errorResponse(res, HTTP_STATUS.NOT_FOUND, 'Course not found');
-      
+
       const isInstructor = course.instructor.id.toString() === userId.toString();
       if (!isInstructor) {
         const enrollment = await Enrollment.findOne({ courseId, studentId: userId });
@@ -87,7 +87,7 @@ export const replyToQuestion = async (req, res, next) => {
     if (userRole !== 'admin') {
       const course = await Course.findById(courseId);
       if (!course) return errorResponse(res, HTTP_STATUS.NOT_FOUND, 'Course not found');
-      
+
       const isInstructor = course.instructor.id.toString() === userId.toString();
       if (!isInstructor) {
         const enrollment = await Enrollment.findOne({ courseId, studentId: userId });

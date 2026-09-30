@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, BookOpen, Mail, Lock, User, ArrowRight } from 'lucide-react';
+import { Eye, EyeOff, BookOpen, Mail, Lock, User, ArrowRight, ShieldCheck, KeyRound, ArrowLeft } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { authAPI } from '../services/api.js';
 import toast from 'react-hot-toast';
@@ -34,23 +34,175 @@ function AuthInput({ icon: Icon, label, ...props }) {
 }
 
 export function LoginPage() {
-  const { login } = useAuth();
+  const { login, complete2FALogin } = useAuth();
   const navigate   = useNavigate();
   const [form, setForm]     = useState({ email: '', password: '', role: 'student' });
   const [loading, setLoading] = useState(false);
+  
+  // 2FA / MFA state
+  const [step, setStep] = useState('credentials'); // 'credentials' | 'mfa'
+  const [mfaData, setMfaData] = useState({ mfaSessionToken: '', email: '' });
+  const [mfaCode, setMfaCode] = useState('');
+  const [isRecoveryMode, setIsRecoveryMode] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const err = params.get('error');
+    if (err) {
+      toast.error(decodeURIComponent(err));
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+
+    // Google OAuth 2FA challenge redirect
+    const mfaToken = params.get('mfaSessionToken');
+    const mfaEmail = params.get('email');
+    if (mfaToken) {
+      setMfaData({ mfaSessionToken: mfaToken, email: mfaEmail || '' });
+      setStep('mfa');
+      toast('Two-Factor Authentication is enabled for this Google account.');
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
 
   const handle = async (e) => {
     e.preventDefault();
     if (!form.email || !form.password) return toast.error('Fill all fields');
     setLoading(true);
     try {
-      const user = await login(form.email, form.password);
-      toast.success(`Welcome back, ${user.name.split(' ')[0]}!`);
+      const res = await login(form.email, form.password);
+      if (res?.mfaRequired) {
+        setMfaData({ mfaSessionToken: res.mfaSessionToken, email: res.email || form.email });
+        setStep('mfa');
+        toast.success('Password verified! Please enter your 2FA code.');
+        return;
+      }
+      toast.success(`Welcome back, ${res.name.split(' ')[0]}!`);
       navigate('/dashboard', { replace: true });
     } catch (err) {
       toast.error(err.response?.data?.message || 'Login failed');
     } finally { setLoading(false); }
   };
+
+  const handleMfaSubmit = async (e) => {
+    e.preventDefault();
+    if (!mfaCode.trim()) return toast.error('Enter verification code');
+    setLoading(true);
+    try {
+      const user = await complete2FALogin({
+        mfaSessionToken: mfaData.mfaSessionToken,
+        code: mfaCode.trim(),
+        isRecoveryCode: isRecoveryMode,
+      });
+      toast.success(`Identity verified! Welcome back, ${user.name.split(' ')[0]}!`);
+      navigate('/dashboard', { replace: true });
+    } catch (err) {
+      toast.error(err.response?.data?.message || '2FA verification failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (step === 'mfa') {
+    return (
+      <AuthLayout
+        title="Two-Factor Authentication"
+        subtitle={
+          isRecoveryMode
+            ? 'Enter an unused 8-character recovery code (e.g. A1B2-C3D4)'
+            : 'Enter the 6-digit code from Google Authenticator / Authy'
+        }
+      >
+        <form onSubmit={handleMfaSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div style={{ textAlign: 'center', marginBottom: 6 }}>
+            <div
+              style={{
+                width: 56,
+                height: 56,
+                borderRadius: '50%',
+                background: 'rgba(108,99,255,0.15)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'var(--indigo-light)',
+                marginBottom: 10,
+              }}
+            >
+              {isRecoveryMode ? <KeyRound size={28} /> : <ShieldCheck size={28} />}
+            </div>
+            <p style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>
+              Verifying account: <strong style={{ color: 'var(--lavender)' }}>{mfaData.email}</strong>
+            </p>
+          </div>
+
+          <div>
+            <label className="input-label">
+              {isRecoveryMode ? 'Emergency Recovery Code' : '6-Digit Authenticator PIN'}
+            </label>
+            <input
+              type="text"
+              autoFocus
+              className="input"
+              placeholder={isRecoveryMode ? 'XXXX-XXXX' : '123456'}
+              value={mfaCode}
+              onChange={(e) => {
+                if (isRecoveryMode) {
+                  setMfaCode(e.target.value.toUpperCase().slice(0, 9));
+                } else {
+                  setMfaCode(e.target.value.replace(/[^0-9]/g, '').slice(0, 6));
+                }
+              }}
+              maxLength={isRecoveryMode ? 9 : 6}
+              style={{
+                textAlign: 'center',
+                fontSize: '1.4rem',
+                letterSpacing: isRecoveryMode ? '4px' : '8px',
+                fontWeight: 700,
+                fontFamily: 'monospace',
+                height: 52,
+              }}
+            />
+          </div>
+
+          <button
+            type="submit"
+            className="btn btn-primary"
+            style={{ height: 48, marginTop: 4 }}
+            disabled={loading || (!isRecoveryMode && mfaCode.length !== 6)}
+          >
+            {loading ? 'Verifying...' : (
+              <>
+                <span>Confirm & Sign In</span> <ArrowRight size={16} />
+              </>
+            )}
+          </button>
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 }}>
+            <button
+              type="button"
+              onClick={() => {
+                setIsRecoveryMode(!isRecoveryMode);
+                setMfaCode('');
+              }}
+              style={{ background: 'none', border: 'none', color: 'var(--indigo-light)', cursor: 'pointer', fontSize: '0.82rem' }}
+            >
+              {isRecoveryMode ? 'Use Authenticator App PIN' : 'Lost phone? Use recovery code'}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setStep('credentials');
+                setMfaCode('');
+              }}
+              style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: 4 }}
+            >
+              <ArrowLeft size={14} /> Back
+            </button>
+          </div>
+        </form>
+      </AuthLayout>
+    );
+  }
 
   return (
     <AuthLayout title="Welcome back" subtitle="Login to continue learning">
@@ -360,25 +512,50 @@ export function ForgotPasswordPage() {
 
 export function OAuthSuccessPage() {
   const navigate = useNavigate();
+  const { setAuthSession } = useAuth();
 
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search);
+    const code = searchParams.get('code');
     const token = searchParams.get('token');
 
-    if (token) {
-      localStorage.setItem('accessToken', token);
-      window.location.href = '/dashboard';
-    } else {
-      toast.error('Google login failed');
-      navigate('/login');
-    }
-  }, [navigate]);
+    const exchange = async () => {
+      try {
+        if (code) {
+          const { data } = await authAPI.exchangeGoogleCode({ code });
+          if (data.data?.mfaRequired) {
+            navigate(
+              `/login?mfaSessionToken=${encodeURIComponent(data.data.mfaSessionToken)}&email=${encodeURIComponent(
+                data.data.email || ''
+              )}`,
+              { replace: true }
+            );
+            return;
+          }
+          await setAuthSession(data.data.accessToken, data.data.user);
+          toast.success('Successfully authenticated via Google!');
+          window.location.href = '/dashboard';
+        } else if (token) {
+          localStorage.setItem('accessToken', token);
+          window.location.href = '/dashboard';
+        } else {
+          toast.error('Google login failed or authorization expired');
+          navigate('/login', { replace: true });
+        }
+      } catch (err) {
+        toast.error(err.response?.data?.message || 'Google authorization failed');
+        navigate('/login', { replace: true });
+      }
+    };
+
+    exchange();
+  }, [navigate, setAuthSession]);
 
   return (
-    <AuthLayout title="Logging you in" subtitle="Please wait while we connect your account...">
+    <AuthLayout title="Logging you in" subtitle="Please wait while we connect your account securely...">
       <div style={{ textAlign: 'center', padding: '40px 0' }}>
         <div style={{ width: 40, height: 40, border: '3px solid var(--indigo)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto' }} />
-        <p style={{ marginTop: 16, color: 'var(--muted)' }}>Securing your session...</p>
+        <p style={{ marginTop: 16, color: 'var(--muted)' }}>Exchanging secure authorization code...</p>
       </div>
     </AuthLayout>
   );

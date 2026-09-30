@@ -37,13 +37,13 @@ setIo(io);
 
 io.on('connection', (socket) => {
   socket.on('join', (userId) => socket.join(userId));
-  socket.on('disconnect', () => {});
+  socket.on('disconnect', () => { });
 });
 
 // Cloudinary setup
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key:    process.env.CLOUDINARY_API_KEY,
+  api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
@@ -67,7 +67,7 @@ const globalLimiter = rateLimit({
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 15, // Strictly prevent brute-force attacks
+  max: 60, // Prevents brute-force while allowing legitimate sessions and 2FA
   standardHeaders: true,
   legacyHeaders: false,
   handler: (req, res) => errorResponse(res, 429, 'Too many auth attempts, try after 15 minutes'),
@@ -96,10 +96,21 @@ app.use('*', (req, res) => errorResponse(res, 404, `Route ${req.originalUrl} not
 
 app.use(errorHandler);
 
+import { connectRabbitMQ } from './shared/utils/rabbitmq.js';
+import { startEmailWorker } from './services/notification-service/src/workers/email.worker.js';
+import { startEnrollmentWorker } from './services/course-service/src/workers/enrollment.worker.js';
+import { startPaymentNotificationWorker } from './services/notification-service/src/workers/payment-notification.worker.js';
+
 const start = async () => {
   try {
     await mongoose.connect(`${process.env.MONGO_URI}/edustream`);
     console.log('✅ Connected to MongoDB (EduStream Monolith)');
+    
+    await connectRabbitMQ();
+    startEmailWorker();
+    startEnrollmentWorker();
+    startPaymentNotificationWorker();
+
     httpServer.listen(PORT, () => {
       console.log(`🚀 Monolithic Server running on port ${PORT}`);
     });

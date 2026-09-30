@@ -10,6 +10,8 @@ export class AppError extends Error {
 
 // Central Error Handler Middleware - har service mein routes ke baad lagega
 const errorHandler = (err, req, res, next) => {
+  console.error("\n🚨 GLOBAL ERROR HANDLER CAUGHT:", err);
+  
   let statusCode = err.statusCode || 500;
   let message = err.message || 'Internal Server Error';
 

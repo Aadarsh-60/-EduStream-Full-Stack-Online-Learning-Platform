@@ -3,7 +3,7 @@ import multer from 'multer';
 import {
   getAllCourses, getCourse, createCourse, updateCourse, deleteCourse,
   uploadThumbnail, addSection, addLecture, getInstructorCourses,
-  checkEnrollment, getCourseStudents, enrollUser, updateCourseRating,
+  checkEnrollment, getCourseStudents, enrollUser, freeEnrollUser, updateCourseRating, updateVideoProgress
 } from '../controllers/course.controller.js';
 import { getCourseQA, askQuestion, replyToQuestion } from '../controllers/qa.controller.js';
 
@@ -30,6 +30,12 @@ router.post('/:id/sections/:sectionId/lectures', addLecture);
 
 // Students
 router.get('/:id/students', getCourseStudents);
+
+// Free enroll (for price=0 courses)
+router.post('/free-enroll', freeEnrollUser);
+
+// Video Progress Tracking
+router.put('/:id/progress', updateVideoProgress);
 
 // Internal - payment service calls this
 router.post('/internal/enroll', enrollUser);
