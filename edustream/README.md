@@ -437,12 +437,56 @@ The platform uses a strict RBAC middleware in the backend to ensure secure acces
 
 ## 🚀 Deployment
 
-### Backend (Render, Railway, or EC2)
-1. **Provision a MongoDB Atlas Database** and whitelist the IP address of your deployment server.
+### 🐳 Docker (Recommended — Full Stack in One Command)
+
+The entire application stack (Backend, Frontend, MongoDB, Redis, RabbitMQ) can be launched with a single command using Docker Compose.
+
+**Prerequisites:** [Docker](https://www.docker.com/get-started) & Docker Compose installed.
+
+**1. Clone the repository:**
+```bash
+git clone https://github.com/Aadarsh-60/-EduStream-Full-Stack-Online-Learning-Platform.git
+cd EduStream-Full-Stack-Online-Learning-Platform/edustream
+```
+
+**2. Set up environment variables:**
+```bash
+cp .env.example .env
+# Edit .env and fill in your API keys (Cloudinary, Razorpay, Gemini, SMTP, etc.)
+```
+
+**3. Launch all services:**
+```bash
+docker-compose up --build
+```
+
+| Service | URL |
+|---|---|
+| **Frontend** | http://localhost |
+| **Backend API** | http://localhost:5000 |
+| **RabbitMQ UI** | http://localhost:15672 (guest/guest) |
+| **MongoDB** | mongodb://localhost:27017 |
+
+**To stop all services:**
+```bash
+docker-compose down
+```
+
+**To stop and remove all persistent data (volumes):**
+```bash
+docker-compose down -v
+```
+
+---
+
+### ☁️ Cloud Deployment (Traditional)
+
+#### Backend (Render, Railway, or EC2)
+1. **Provision services:** MongoDB Atlas, a Redis instance (Upstash), and a CloudAMQP/RabbitMQ instance.
 2. **Set Environment Variables**: Copy your `.env` values to the hosting provider's dashboard.
 3. Set the build command to `npm install` and the start command to `node server.js`.
 
-### Frontend (Vercel, Netlify, or Cloudflare Pages)
+#### Frontend (Vercel, Netlify, or Cloudflare Pages)
 1. Import the repository and set the root directory to `edustream-frontend`.
 2. Framework Preset: **Vite**.
 3. Set `VITE_API_URL` in the environment variables to your deployed backend URL.
