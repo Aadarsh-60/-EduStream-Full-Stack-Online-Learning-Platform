@@ -5,26 +5,24 @@ services:
     image: mongo:7.0
     container_name: edustream-mongo
     restart: unless-stopped
-    ports:
-      - "27017:27017"
+    # Isolated inside edustream-net (avoids collision with host MongoDB on port 27017)
     volumes:
       - mongo_data:/data/db
     networks:
       - edustream-net
     healthcheck:
       test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
-      interval: 20s
+      interval: 15s
       timeout: 5s
       retries: 5
-      start_period: 20s
+      start_period: 15s
 
   # ── Redis Cache & Rate Limiting ───────────────────────────────
   redis:
     image: redis:7.2-alpine
     container_name: edustream-redis
     restart: unless-stopped
-    ports:
-      - "6379:6379"
+    # Isolated inside edustream-net (avoids collision with host Redis on port 6379)
     volumes:
       - redis_data:/data
     networks:
@@ -40,16 +38,17 @@ services:
     image: rabbitmq:3.13-management-alpine
     container_name: edustream-rabbitmq
     restart: unless-stopped
+    # AMQP port 5672 is internal to edustream-net (avoids host RabbitMQ collision)
+    # Management UI mapped to 15673 to prevent host port collision
     ports:
-      - "5672:5672"       # AMQP port (used by backend)
-      - "15672:15672"     # Management UI: http://localhost:15672 (guest/guest)
+      - "${RABBITMQ_MGMT_PORT:-15673}:15672"
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     networks:
       - edustream-net
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "ping"]
-      interval: 20s
+      interval: 15s
       timeout: 10s
       retries: 5
       start_period: 20s
@@ -62,7 +61,7 @@ services:
     container_name: edustream-backend
     restart: unless-stopped
     ports:
-      - "5000:5000"
+      - "${BACKEND_PORT:-5000}:5000"
     depends_on:
       mongo:
         condition: service_healthy
@@ -70,51 +69,17 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+    env_file:
+      - ./edustream/edustream-backend/.env
     environment:
       NODE_ENV: production
       PORT: 5000
-      CLIENT_URL: http://localhost,http://localhost:5173,http://127.0.0.1
+      CLIENT_URL: http://localhost:${FRONTEND_PORT:-5173},http://localhost:5173,http://localhost
 
-      # Microservice / Modular Monolith Connections
+      # Docker container internal network addresses
       MONGO_URI: mongodb://mongo:27017
       REDIS_URL: redis://redis:6379
       RABBITMQ_URL: amqp://rabbitmq
-
-      # Authentication Secrets
-      JWT_SECRET: ${JWT_SECRET}
-      ACCESS_TOKEN_SECRET: ${ACCESS_TOKEN_SECRET}
-      ACCESS_TOKEN_EXPIRY: ${ACCESS_TOKEN_EXPIRY:-15m}
-      REFRESH_TOKEN_SECRET: ${REFRESH_TOKEN_SECRET}
-      INTERNAL_SERVICE_SECRET: ${INTERNAL_SERVICE_SECRET:-edustream_internal_2024}
-
-      # Google OAuth
-      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
-      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
-      GOOGLE_CALLBACK_URL: ${GOOGLE_CALLBACK_URL:-http://localhost:5000/api/auth/google/callback}
-
-      # Cloudinary Media Storage
-      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME}
-      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY}
-      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET}
-
-      # Google Gemini AI
-      GEMINI_API_KEY: ${GEMINI_API_KEY}
-
-      # Razorpay Payment Gateway
-      RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID}
-      RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET}
-      RAZORPAY_WEBHOOK_SECRET: ${RAZORPAY_WEBHOOK_SECRET}
-
-      # Centralized Notification Hub
-      NOTIFICATION_HUB_API_KEY: ${NOTIFICATION_HUB_API_KEY}
-      NOTIFICATION_HUB_API_SECRET: ${NOTIFICATION_HUB_API_SECRET}
-
-      # SMTP Email Delivery
-      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
-      SMTP_PORT: ${SMTP_PORT:-587}
-      SMTP_USER: ${SMTP_USER}
-      SMTP_PASS: ${SMTP_PASS}
-      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@edustream.com}
     networks:
       - edustream-net
 
@@ -124,11 +89,12 @@ services:
       context: ./edustream/edustream-frontend
       dockerfile: Dockerfile
       args:
-        VITE_API_URL: ""   # Empty string so Nginx /api reverse proxy routes correctly
+        VITE_API_URL: ""   # Empty so Nginx /api reverse proxy routes correctly
     container_name: edustream-frontend
     restart: unless-stopped
+    # Port 5173 on host (avoids collision with tripmate_frontend on port 80)
     ports:
-      - "80:80"
+      - "${FRONTEND_PORT:-5173}:80"
     depends_on:
       - backend
     networks:
