@@ -1,0 +1,78 @@
+services:
+
+  # ── EduStream Backend (Node.js Web Service) ───────────────────
+  - type: web
+    name: edustream-backend
+    runtime: node
+    plan: free
+    region: oregon
+    rootDir: edustream/edustream-backend
+    buildCommand: npm install
+    startCommand: node server.js
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5000
+      - key: MONGO_URI
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: RABBITMQ_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: ACCESS_TOKEN_SECRET
+        generateValue: true
+      - key: ACCESS_TOKEN_EXPIRY
+        value: 15m
+      - key: REFRESH_TOKEN_SECRET
+        generateValue: true
+      - key: INTERNAL_SERVICE_SECRET
+        value: edustream_internal_2024
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false
+      - key: RAZORPAY_WEBHOOK_SECRET
+        sync: false
+      - key: NOTIFICATION_HUB_API_KEY
+        sync: false
+      - key: NOTIFICATION_HUB_API_SECRET
+        sync: false
+      - key: CLIENT_URL
+        fromService:
+          type: web
+          name: edustream-frontend
+          property: url
+
+  # ── EduStream Frontend (React/Vite Static Site) ───────────────
+  - type: web
+    name: edustream-frontend
+    runtime: static
+    plan: free
+    region: oregon
+    rootDir: edustream/edustream-frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    autoDeploy: true
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: edustream-backend
+          property: url
