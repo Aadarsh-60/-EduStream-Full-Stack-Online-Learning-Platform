@@ -26,6 +26,13 @@ if (process.env.REDIS_URL) {
       connectTimeout: 3000,           // 3-second connection timeout
       lazyConnect: true,              // Don't connect until first command
       enableOfflineQueue: false,      // Don't queue commands when offline
+      retryStrategy: (times) => {
+        if (times > 3) {
+          isRedisAvailable = false;
+          return null; // Stop retrying after 3 attempts
+        }
+        return Math.min(times * 1000, 3000);
+      },
     });
 
     redisClient.on('connect', () => {
@@ -33,9 +40,13 @@ if (process.env.REDIS_URL) {
       console.log('✅ Redis connected successfully.');
     });
 
+    let hasLoggedRedisError = false;
     redisClient.on('error', (err) => {
       isRedisAvailable = false;
-      console.warn(`⚠️  Redis unavailable. Falling back to MongoDB. Reason: ${err.message}`);
+      if (!hasLoggedRedisError) {
+        hasLoggedRedisError = true;
+        console.warn(`⚠️  Redis unavailable (${err.message}). Falling back to MongoDB.`);
+      }
     });
 
     await redisClient.connect();

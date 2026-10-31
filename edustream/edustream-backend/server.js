@@ -117,7 +117,13 @@ app.use('/api/media', mediaRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/notifications', notificationRoutes);
 
-// Health Check
+// Root & Health Check
+app.get('/', (req, res) => res.json({
+  status: 'ok',
+  message: '🎓 EduStream Backend API is live and running!',
+  health: '/health'
+}));
+
 app.get('/health', (req, res) => res.json({
   status: 'ok', service: 'EduStream Monolith', timestamp: new Date()
 }));
