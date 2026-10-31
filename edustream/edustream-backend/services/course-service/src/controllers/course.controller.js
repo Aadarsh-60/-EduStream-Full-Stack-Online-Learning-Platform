@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import { v2 as cloudinary } from 'cloudinary';
 import Course from '../models/Course.js';
 import Enrollment from '../models/Enrollment.js';
@@ -376,32 +377,46 @@ export const updateVideoProgress = async (req, res, next) => {
     const enrollment = await Enrollment.findOne({ userId, courseId });
     if (!enrollment) throw new AppError('Not enrolled in this course', 403);
 
-    // If lecture is marked as completed, add it to the completedLectures array
-    if (isCompleted && !enrollment.completedLectures.includes(lectureId)) {
-      enrollment.completedLectures.push(lectureId);
+    // Special case: Student passed the final AI quiz or explicitly requested 100% completion
+    if (lectureId === 'quiz-pass' || req.body.progress === 100) {
+      enrollment.progress = 100;
+      enrollment.isCompleted = true;
+      if (!enrollment.completedAt) enrollment.completedAt = new Date();
+      await enrollment.save();
+
+      return successResponse(res, HTTP_STATUS.OK, 'Progress updated successfully', {
+        progress: 100,
+        completedLectures: enrollment.completedLectures,
+      });
+    }
+
+    // If lecture is marked as completed and is a valid ObjectId, add it to completedLectures
+    if (isCompleted && lectureId && mongoose.Types.ObjectId.isValid(lectureId)) {
+      const lectureObjId = new mongoose.Types.ObjectId(lectureId);
+      if (!enrollment.completedLectures.some((id) => id.equals(lectureObjId))) {
+        enrollment.completedLectures.push(lectureObjId);
+      }
       
       // Calculate overall progress percentage
       const course = await Course.findById(courseId);
       let totalLectures = 0;
-      course.sections.forEach(sec => totalLectures += sec.lectures.length);
+      course?.sections?.forEach(sec => totalLectures += (sec.lectures?.length || 0));
       
-      enrollment.progress = Math.round((enrollment.completedLectures.length / totalLectures) * 100);
+      enrollment.progress = totalLectures > 0 
+        ? Math.min(100, Math.round((enrollment.completedLectures.length / totalLectures) * 100))
+        : 100;
       
       if (enrollment.progress === 100) {
         enrollment.isCompleted = true;
-        enrollment.completedAt = new Date();
+        if (!enrollment.completedAt) enrollment.completedAt = new Date();
       }
       
       await enrollment.save();
     }
 
-    // In a real-world scenario with Redis, we would cache "timeWatched" 
-    // temporarily in Redis and only flush to MongoDB every 5 minutes.
-    // Here, we successfully record the batch update without heavy DB processing.
-
     return successResponse(res, HTTP_STATUS.OK, 'Progress updated successfully', {
       progress: enrollment.progress,
-      completedLectures: enrollment.completedLectures
+      completedLectures: enrollment.completedLectures,
     });
   } catch (err) { next(err); }
 };

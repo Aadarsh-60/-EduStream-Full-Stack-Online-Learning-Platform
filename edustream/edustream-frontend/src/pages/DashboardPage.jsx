@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { BookOpen, TrendingUp, Bell, Star, Plus, Users, DollarSign, Play, Clock, Shield, X, Mail, Award, Heart, Map, Loader2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
-import { userAPI, courseAPI, notificationAPI, authAPI, searchAPI } from '../services/api.js';
+import { userAPI, courseAPI, notificationAPI, authAPI, searchAPI, getApiBaseUrl } from '../services/api.js';
 import toast from 'react-hot-toast';
 import ReactMarkdown from 'react-markdown';
 import { UsersRoleChart, CoursesCategoryChart, InstructorEnrollmentChart } from '../components/dashboard/AnalyticsCharts.jsx';
@@ -36,15 +36,15 @@ function StudentDashboard({ user }) {
   const [generatingRoadmap, setGeneratingRoadmap] = useState(false);
 
   const handleGenerateRoadmap = async (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
     if (!roadmapGoal.trim()) return toast.error('Please enter a goal first');
     
     setGeneratingRoadmap(true);
-    setRoadmapData(''); // We will stream string instead of parsing JSON
+    setRoadmapData(''); // Stream new roadmap
 
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/search/ai/generate-roadmap`, {
+      const token = localStorage.getItem('accessToken');
+      const response = await fetch(`${getApiBaseUrl()}/search/ai/generate-roadmap`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(token && { Authorization: `Bearer ${token}` }) },
         body: JSON.stringify({ goal: roadmapGoal })
@@ -52,30 +52,38 @@ function StudentDashboard({ user }) {
 
       if (!response.ok) throw new Error('Failed to fetch');
 
-      setGeneratingRoadmap(false);
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
+      let buffer = '';
       
       while (true) {
         const { value, done } = await reader.read();
         if (done) break;
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split('\n');
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop(); // Keep incomplete line across chunks
         
         for (const line of lines) {
-          if (line.startsWith('data: ') && line.trim() !== 'data: [DONE]') {
+          const trimmed = line.trim();
+          if (!trimmed || trimmed === 'data: [DONE]') continue;
+          if (trimmed.startsWith('data: ')) {
             try {
-              const data = JSON.parse(line.substring(6));
+              const data = JSON.parse(trimmed.slice(6));
               if (data.text) {
                 setRoadmapData(prev => (prev || '') + data.text);
+              } else if (data.error) {
+                setRoadmapData(`**Error:** ${data.error}. Please try again later.`);
               }
-            } catch (err) { /* ignore chunk boundary parse errors */ }
+            } catch (err) {
+              buffer = line + '\n' + buffer;
+            }
           }
         }
       }
       toast.success('Your personalized roadmap is ready!');
     } catch (err) {
       toast.error(err.message || 'Failed to generate roadmap');
+    } finally {
       setGeneratingRoadmap(false);
     }
   };
@@ -298,11 +306,19 @@ function StudentDashboard({ user }) {
             </form>
           </div>
 
-          {roadmapData && (
-            <div className="card" style={{ padding: '32px 40px', background: 'var(--navy-800)', border: '1px solid var(--border)' }}>
-              <div className="markdown-body" style={{ color: 'var(--lavender)', fontSize: '0.95rem', lineHeight: 1.7 }}>
-                <ReactMarkdown>{roadmapData}</ReactMarkdown>
-              </div>
+          {(roadmapData || generatingRoadmap) && (
+            <div className="card" style={{ padding: '32px 40px', background: 'var(--navy-800)', border: '1px solid var(--border)', marginTop: 24 }}>
+              {generatingRoadmap && !roadmapData ? (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '32px 0', color: 'var(--muted)' }}>
+                  <Loader2 size={36} color="var(--indigo)" className="spin" style={{ marginBottom: 16 }} />
+                  <p>Architecting your personalized structured roadmap...</p>
+                </div>
+              ) : (
+                <div className="markdown-body" style={{ color: 'var(--lavender)', fontSize: '0.95rem', lineHeight: 1.75 }}>
+                  <ReactMarkdown>{roadmapData}</ReactMarkdown>
+                  {generatingRoadmap && <span className="streaming-cursor" title="Streaming roadmap..." />}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -560,6 +576,10 @@ function AdminDashboard({ user }) {
   const [filterRole, setFilterRole] = useState('all'); // 'all', 'student', 'instructor'
   const [showAddUser, setShowAddUser] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null); // For manage modal
+  const [selectedRole, setSelectedRole] = useState('student');
+  const [updatingRole, setUpdatingRole] = useState(false);
+  const [deletingUser, setDeletingUser] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   // Add user form state
   const [newUser, setNewUser] = useState({ name: '', email: '', password: '', role: 'instructor' });
@@ -594,12 +614,63 @@ function AdminDashboard({ user }) {
       .finally(() => setLoading(false));
   };
 
+  const handleOpenManageModal = (targetUser) => {
+    setSelectedUser(targetUser);
+    setSelectedRole(targetUser.role || 'student');
+    setConfirmDelete(false);
+  };
+
+  const handleUpdateRole = async () => {
+    if (!selectedUser) return;
+    if (selectedRole === selectedUser.role) {
+      toast.error('User already has this role');
+      return;
+    }
+    try {
+      setUpdatingRole(true);
+      const targetId = selectedUser.userId || selectedUser._id;
+      await userAPI.updateUserRole(targetId, selectedRole);
+      toast.success(`Role successfully changed to ${selectedRole}!`);
+
+      // Update in local state
+      setUsersList(prev => prev.map(u => 
+        (u._id === selectedUser._id || u.userId === selectedUser.userId) 
+          ? { ...u, role: selectedRole } 
+          : u
+      ));
+      setSelectedUser(prev => prev ? { ...prev, role: selectedRole } : null);
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to update user role');
+    } finally {
+      setUpdatingRole(false);
+    }
+  };
+
+  const handleDeleteUser = async () => {
+    if (!selectedUser) return;
+    try {
+      setDeletingUser(true);
+      const targetId = selectedUser.userId || selectedUser._id;
+      await userAPI.deleteUser(targetId);
+      toast.success(`User ${selectedUser.name} deleted successfully!`);
+
+      // Remove from local state
+      setUsersList(prev => prev.filter(u => u._id !== selectedUser._id && u.userId !== selectedUser.userId));
+      setSelectedUser(null);
+      setConfirmDelete(false);
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to delete user');
+    } finally {
+      setDeletingUser(false);
+    }
+  };
+
   const handleAddUser = async (e) => {
     e.preventDefault();
     try {
       setAddingUser(true);
-      await authAPI.register(newUser);
-      toast.success('User created successfully!');
+      await userAPI.createUser(newUser);
+      toast.success(`User created successfully as ${newUser.role}!`);
       setShowAddUser(false);
       setNewUser({ name: '', email: '', password: '', role: 'instructor' });
       fetchAdminData(); // Refresh the list
@@ -734,7 +805,7 @@ function AdminDashboard({ user }) {
                       {new Date(u.createdAt).toLocaleDateString()}
                     </td>
                     <td style={{ padding: '16px', textAlign: 'right' }}>
-                      <button className="btn btn-outline btn-sm" onClick={() => setSelectedUser(u)}>Manage</button>
+                      <button className="btn btn-outline btn-sm" onClick={() => handleOpenManageModal(u)}>Manage</button>
                     </td>
                   </tr>
                 ))}
@@ -822,42 +893,133 @@ function AdminDashboard({ user }) {
 
       {/* Manage User Modal */}
       {selectedUser && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
-          <div className="card" style={{ width: '100%', maxWidth: 450, padding: 32, animation: 'fadeUp 0.3s ease' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-              <h2 style={{ fontSize: '1.4rem' }}>Manage User</h2>
-              <button onClick={() => setSelectedUser(null)} style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer' }}><X /></button>
+        <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(6px)' }}>
+          <div className="card" style={{ width: '100%', maxWidth: 460, padding: 32, animation: 'fadeUp 0.3s ease', boxShadow: '0 20px 40px rgba(0,0,0,0.5)', border: '1px solid var(--border)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <h2 style={{ fontSize: '1.35rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Shield size={20} color="var(--indigo)" /> Manage User
+              </h2>
+              <button onClick={() => setSelectedUser(null)} style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', padding: 4 }}>
+                <X size={20} />
+              </button>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 8 }}>
-                <div style={{ width: 60, height: 60, borderRadius: '50%', background: 'var(--navy-600)', overflow: 'hidden' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+              {/* User Profile Header */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                <div style={{ width: 60, height: 60, borderRadius: '50%', background: 'var(--navy-600)', overflow: 'hidden', border: '2px solid var(--border)', flexShrink: 0 }}>
                   <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${selectedUser.name}`} alt="" style={{ width: '100%', height: '100%' }} />
                 </div>
-                <div>
-                  <h3 style={{ fontSize: '1.2rem', marginBottom: 4 }}>{selectedUser.name}</h3>
-                  <p style={{ color: 'var(--muted)', fontSize: '0.9rem' }}>{selectedUser.email}</p>
-                  <span className={`badge ${selectedUser.role === 'admin' ? 'badge-gold' : selectedUser.role === 'instructor' ? 'badge-indigo' : 'badge-green'}`} style={{ textTransform: 'capitalize', marginTop: 8, display: 'inline-block' }}>
-                    {selectedUser.role}
-                  </span>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <h3 style={{ fontSize: '1.15rem', marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selectedUser.name}</h3>
+                  <p style={{ color: 'var(--muted)', fontSize: '0.85rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selectedUser.email}</p>
+                  <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>Current Role:</span>
+                    <span className={`badge ${selectedUser.role === 'admin' ? 'badge-gold' : selectedUser.role === 'instructor' ? 'badge-indigo' : 'badge-green'}`} style={{ textTransform: 'capitalize' }}>
+                      {selectedUser.role}
+                    </span>
+                  </div>
                 </div>
               </div>
 
-              <div style={{ padding: '16px', background: 'rgba(255,255,255,0.03)', borderRadius: 12, border: '1px solid var(--border)' }}>
-                <p style={{ fontSize: '0.85rem', color: 'var(--muted)', marginBottom: 12 }}>User ID: <span style={{ fontFamily: 'monospace', color: 'var(--text-main)' }}>{selectedUser.userId || selectedUser._id}</span></p>
-                <p style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>Joined: <span style={{ color: 'var(--text-main)' }}>{new Date(selectedUser.createdAt).toLocaleDateString()}</span></p>
+              {/* User Details Box */}
+              <div style={{ padding: '12px 16px', background: 'rgba(255,255,255,0.03)', borderRadius: 10, border: '1px solid var(--border)', fontSize: '0.85rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <span style={{ color: 'var(--muted)' }}>User ID</span>
+                  <span style={{ fontFamily: 'monospace', color: 'var(--text-main)', fontSize: '0.8rem' }}>{selectedUser.userId || selectedUser._id}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: 'var(--muted)' }}>Member Since</span>
+                  <span style={{ color: 'var(--text-main)' }}>{new Date(selectedUser.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                </div>
               </div>
 
-              <div style={{ display: 'flex', gap: 12, marginTop: 16 }}>
-                <button className="btn btn-outline" style={{ flex: 1 }} onClick={() => {
-                  toast.success('Role updated successfully! (Demo)');
-                  setSelectedUser(null);
-                }}>Change Role</button>
-                <button className="btn btn-primary" style={{ flex: 1, background: '#ef4444', borderColor: '#ef4444' }} onClick={() => {
-                  toast.success('User deleted successfully! (Demo)');
-                  setSelectedUser(null);
-                }}>Delete User</button>
+              {/* Role Selection Section */}
+              <div style={{ marginTop: 2 }}>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--muted)', marginBottom: 8 }}>
+                  Change Role
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+                  {[
+                    { key: 'student', label: 'Student' },
+                    { key: 'instructor', label: 'Instructor' },
+                    { key: 'admin', label: 'Admin' }
+                  ].map(({ key, label }) => {
+                    const isSelected = selectedRole === key;
+                    const isCurrent = selectedUser.role === key;
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => setSelectedRole(key)}
+                        style={{
+                          padding: '10px 8px',
+                          borderRadius: 8,
+                          border: isSelected ? '2px solid var(--indigo)' : '1px solid var(--border)',
+                          background: isSelected ? 'rgba(99, 102, 241, 0.15)' : 'rgba(255,255,255,0.02)',
+                          color: isSelected ? 'var(--indigo-light)' : 'var(--text-main)',
+                          fontSize: '0.85rem',
+                          fontWeight: isSelected ? 700 : 500,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          gap: 2,
+                          transition: 'all 0.15s ease'
+                        }}
+                      >
+                        <span>{label}</span>
+                        {isCurrent && <span style={{ fontSize: '0.65rem', opacity: 0.7 }}>(Current)</span>}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
+
+              {/* Action Buttons or Delete Confirmation */}
+              {confirmDelete ? (
+                <div style={{ padding: 14, background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: 10, marginTop: 4 }}>
+                  <p style={{ fontSize: '0.85rem', color: '#fca5a5', marginBottom: 12, lineHeight: 1.4 }}>
+                    ⚠️ Are you sure you want to permanently delete <strong>{selectedUser.name}</strong>? This action cannot be reversed.
+                  </p>
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    <button
+                      className="btn btn-primary"
+                      disabled={deletingUser}
+                      onClick={handleDeleteUser}
+                      style={{ flex: 1, background: '#ef4444', borderColor: '#ef4444' }}
+                    >
+                      {deletingUser ? 'Deleting...' : 'Yes, Delete'}
+                    </button>
+                    <button
+                      className="btn btn-outline"
+                      disabled={deletingUser}
+                      onClick={() => setConfirmDelete(false)}
+                      style={{ flex: 1 }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
+                  <button
+                    className="btn btn-primary"
+                    style={{ flex: 1.2 }}
+                    disabled={updatingRole || selectedRole === selectedUser.role}
+                    onClick={handleUpdateRole}
+                  >
+                    {updatingRole ? 'Updating...' : selectedRole === selectedUser.role ? 'Select Role' : `Save as ${selectedRole.charAt(0).toUpperCase() + selectedRole.slice(1)}`}
+                  </button>
+                  <button
+                    className="btn btn-outline"
+                    style={{ flex: 0.8, borderColor: 'rgba(239, 68, 68, 0.4)', color: '#ef4444' }}
+                    onClick={() => setConfirmDelete(true)}
+                  >
+                    Delete User
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>

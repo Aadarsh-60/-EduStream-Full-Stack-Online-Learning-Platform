@@ -4,6 +4,7 @@ import {
   uploadVideo, uploadPDF, deleteMedia, getUploadSignature,
   compressAndUploadImage, generateSignedVideoUrl
 } from '../controllers/media.controller.js';
+import { verifyToken } from '../../../../shared/middlewares/auth.js';
 
 const router = express.Router();
 
@@ -27,10 +28,10 @@ const pdfUpload = multer({
   },
 }).single('pdf');
 
-router.post('/video',     videoUpload, uploadVideo);
-router.post('/pdf',       pdfUpload, uploadPDF);
-router.delete('/delete',  deleteMedia);
-router.get('/signature',  getUploadSignature);
+router.post('/video',     verifyToken, videoUpload, uploadVideo);
+router.post('/pdf',       verifyToken, pdfUpload, uploadPDF);
+router.delete('/delete',  verifyToken, deleteMedia);
+router.get('/signature',  verifyToken, getUploadSignature);
 
 // Image upload with auto-compression (Sharp)
 const imageUpload = multer({
@@ -42,10 +43,10 @@ const imageUpload = multer({
   },
 }).single('image');
 
-router.post('/image',     imageUpload, compressAndUploadImage);
+router.post('/image',      verifyToken, imageUpload, compressAndUploadImage);
 
 // Generate a time-limited signed URL for private video playback
-router.post('/signed-url', generateSignedVideoUrl);
+router.post('/signed-url', verifyToken, generateSignedVideoUrl);
 
 router.get('/health', (req, res) => res.json({ status: 'ok', service: 'media-service' }));
 

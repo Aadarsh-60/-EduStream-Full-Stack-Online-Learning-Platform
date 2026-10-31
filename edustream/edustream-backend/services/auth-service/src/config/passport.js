@@ -99,7 +99,7 @@ passport.use(
           });
         }
 
-        const payload = { userId: user._id, email: user.email, role: user.role };
+        const payload = { userId: user._id, email: user.email, role: user.role, name: user.name };
         const jwtAccessToken = generateAccessToken(payload);
         const jwtRefreshToken = generateRefreshToken(payload);
 

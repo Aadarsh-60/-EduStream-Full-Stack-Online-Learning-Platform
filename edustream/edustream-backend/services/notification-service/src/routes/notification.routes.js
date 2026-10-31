@@ -4,6 +4,7 @@ import {
   markAsRead, markAllAsRead, getUnreadCount,
   getPreferences, updatePreferences,
 } from '../controllers/notification.controller.js';
+import { verifyToken } from '../../../../shared/middlewares/auth.js';
 
 const router = express.Router();
 
@@ -11,14 +12,14 @@ const router = express.Router();
 router.post('/internal/send',   sendNotification);
 
 // ── User-facing notification feed ─────────────────────────────
-router.get('/',                        getMyNotifications);    // Paginated feed + unreadCount
-router.get('/unread-count',            getUnreadCount);
-router.put('/read-all',                markAllAsRead);
-router.put('/:notificationId/read',    markAsRead);
+router.get('/',                        verifyToken, getMyNotifications);    // Paginated feed + unreadCount
+router.get('/unread-count',            verifyToken, getUnreadCount);
+router.put('/read-all',                verifyToken, markAllAsRead);
+router.put('/:notificationId/read',    verifyToken, markAsRead);
 
 // ── Notification Preferences (Settings Page) ──────────────────
-router.get('/preferences',             getPreferences);        // Get my preferences
-router.put('/preferences',             updatePreferences);     // Update my preferences
+router.get('/preferences',             verifyToken, getPreferences);        // Get my preferences
+router.put('/preferences',             verifyToken, updatePreferences);     // Update my preferences
 
 router.get('/health', (req, res) => res.json({ status: 'ok', service: 'notification-service' }));
 

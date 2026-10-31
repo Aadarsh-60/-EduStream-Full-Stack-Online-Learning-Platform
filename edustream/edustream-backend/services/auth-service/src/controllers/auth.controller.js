@@ -218,7 +218,7 @@ export const login = async (req, res, next) => {
     }
 
     // First generate refresh token
-    const basePayload = { userId: user._id, email: user.email, role: user.role };
+    const basePayload = { userId: user._id, email: user.email, role: user.role, name: user.name };
     const refreshToken = generateRefreshToken(basePayload);
 
     // Device / Session Tracking (Level 2 & 4)
@@ -350,7 +350,7 @@ export const verify2FALogin = async (req, res, next) => {
     }
 
     // First generate refresh token
-    const basePayload = { userId: user._id, email: user.email, role: user.role };
+    const basePayload = { userId: user._id, email: user.email, role: user.role, name: user.name };
     const refreshToken = generateRefreshToken(basePayload);
 
     user.cleanExpiredTokens();
@@ -682,7 +682,7 @@ export const refreshAccessToken = async (req, res, next) => {
     const clientIp = getClientIp(req);
     const device = parseUserAgent(req.headers['user-agent']);
 
-    const basePayload = { userId: user._id, email: user.email, role: user.role };
+    const basePayload = { userId: user._id, email: user.email, role: user.role, name: user.name };
     const newRefreshToken = generateRefreshToken(basePayload);
     
     user.refreshTokens.push({

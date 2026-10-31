@@ -195,10 +195,11 @@ Each object must have this exact structure:
 });
 
 // ── Helper for Gemini SSE Streaming ────────────────────────────
-const streamGeminiSSE = async (prompt, res, apiKey, temperature = 0.7) => {
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
+const streamGeminiSSE = async (prompt, res, apiKey, temperature = 0.5) => {
+  res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
   res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
   res.flushHeaders();
 
   try {
@@ -214,6 +215,7 @@ const streamGeminiSSE = async (prompt, res, apiKey, temperature = 0.7) => {
     for await (const chunk of stream) {
       if (chunk.text) {
         res.write(`data: ${JSON.stringify({ text: chunk.text })}\n\n`);
+        if (typeof res.flush === 'function') res.flush();
       }
     }
 
@@ -221,12 +223,12 @@ const streamGeminiSSE = async (prompt, res, apiKey, temperature = 0.7) => {
     res.end();
   } catch (err) {
     console.error('Gemini Stream Error:', err.message);
-    res.write(`data: ${JSON.stringify({ error: 'Failed to generate content' })}\n\n`);
+    res.write(`data: ${JSON.stringify({ error: err.message || 'Failed to generate content' })}\n\n`);
     res.end();
   }
 };
 
-// ── AI Course Summarizer (Study Notes) - STREAMING ───────────
+// ── AI Course Summarizer (Study Notes) - STREAMING & STRUCTURED ─
 router.post('/ai/generate-notes', async (req, res, next) => {
   try {
     const { courseId, topic } = req.body;
@@ -238,32 +240,92 @@ router.post('/ai/generate-notes', async (req, res, next) => {
     const course = await CourseModel.findById(courseId).select('title description learningOutcomes');
     if (!course) return res.status(404).json({ message: 'Course not found' });
 
-    let prompt = '';
-    if (topic && topic.trim() !== '') {
-      prompt = `Act as an expert instructor. The student has requested specific study notes on the topic: "${topic.trim()}" within the context of the course titled "${course.title}".
+    const topicFocus = topic && topic.trim() !== '' ? topic.trim() : 'Comprehensive Course Curriculum';
+
+    const prompt = `You are a distinguished university professor and principal staff software engineer. Create elite, high-yield, and beautifully structured study notes in GitHub-flavored Markdown.
+
+Course: "${course.title}"
+Topic Focus: "${topicFocus}"
 Course Description: ${course.description}
+Key Objectives: ${course.learningOutcomes?.join(', ') || 'Core concepts and practical execution'}
 
-Please provide detailed, well-structured, and highly effective study notes focused entirely on this topic. Format the response strictly in Markdown. Use clear headings, bullet points, and code snippets if applicable. Do NOT output anything other than the markdown text.`;
-    } else {
-      prompt = `Act as an expert instructor. Create highly effective study notes for a course titled "${course.title}".
-Description: ${course.description}
-Learning Outcomes: ${course.learningOutcomes.join(', ')}
+CRITICAL FORMATTING INSTRUCTIONS:
+- Structure the response with clear hierarchical Markdown headers (#, ##, ###).
+- Always leave an empty blank line between every heading, paragraph, list item, and code block.
+- Format all code with proper markdown language tags (e.g. \`\`\`javascript, \`\`\`python).
+- Use tables, callouts (> 💡), and bold keywords for maximum readability.
+- Do NOT output preamble or meta text. Start immediately with the Markdown title.
 
-Format the response strictly in Markdown with these sections:
-1. **Course Overview**: A crisp 2-sentence summary.
-2. **Key Concepts**: Bullet points of main topics.
-3. **Important Takeaways**: Why this matters.
-Do NOT output anything other than the markdown text.`;
-    }
+Use this EXACT structured architecture:
 
-    await streamGeminiSSE(prompt, res, apiKey, 0.5);
+# 📚 Study Notes: ${topicFocus}
+*Course: ${course.title}*
+
+> 💡 **Executive Summary:** [2-3 sentences providing an intuitive high-level explanation of this subject, its architectural purpose, and why it matters in real-world software engineering.]
+
+---
+
+## 🎯 Key Learning Objectives
+- [x] **Core Understanding:** [Master foundational concepts and underlying execution model]
+- [x] **Practical Skill:** [Apply clean, maintainable patterns in real projects]
+- [x] **Performance & Quality:** [Identify performance gotchas and engineering trade-offs]
+
+---
+
+## 🧠 Core Architecture & Deep-Dive Concepts
+
+### 1. Conceptual Foundation & Mental Model
+[Detailed, clear explanation using intuitive analogies. Highlight vital keywords in **bold**.]
+
+### 2. Inner Mechanics & Execution Flow
+[Explain step-by-step how the internals operate. If relevant, include a clean ASCII architecture diagram or workflow representation.]
+
+### 3. Key Terminology & Definitions
+* **[Term 1]:** [Crisp definition]
+* **[Term 2]:** [Crisp definition]
+* **[Term 3]:** [Crisp definition]
+
+---
+
+## 💻 Production-Ready Code Implementation
+Provide a realistic, cleanly commented, and robust code example demonstrating the best-practice pattern.
+
+\`\`\`javascript
+// [Describe what this example accomplishes]
+// Production-grade implementation with explanatory comments
+\`\`\`
+
+---
+
+## ⚠️ Common Pitfalls & Anti-Patterns
+| ❌ Anti-Pattern / Mistake | ⚠️ Impact | ✅ Best Practice Solution |
+|---|---|---|
+| [Common mistake 1] | [Why this causes bugs or memory leaks] | [The idiomatic, correct solution] |
+| [Common mistake 2] | [Why this causes bugs or slow execution] | [The idiomatic, correct solution] |
+
+---
+
+## 📝 High-Yield Revision Cheat-Sheet
+* ⚡ **Cardinal Rule:** [The #1 rule to remember when implementing this]
+* ⚡ **Execution Formula:** [Step 1 ➔ Step 2 ➔ Step 3]
+* ⚡ **Pro Tip:** [Senior engineer tip for interviews or production scale]
+
+---
+
+## ❓ Knowledge Check (Self-Assessment)
+1. **Question 1:** [Thought-provoking concept question to test comprehension]
+   * *Hint/Answer:* [Concise hint or answer]
+2. **Question 2:** [Practical engineering decision question]
+   * *Hint/Answer:* [Concise hint or answer]`;
+
+    await streamGeminiSSE(prompt, res, apiKey, 0.4);
   } catch (err) {
     console.error('AI Notes Error:', err.message);
     res.status(500).json({ success: false, message: err.message });
   }
 });
 
-// ── AI Personalized Roadmap - STREAMING ──────────────────────
+// ── AI Personalized Roadmap - STREAMING & STRUCTURED ─────────
 router.post('/ai/generate-roadmap', async (req, res, next) => {
   try {
     const { goal } = req.body;
@@ -272,34 +334,91 @@ router.post('/ai/generate-roadmap', async (req, res, next) => {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) return res.status(500).json({ message: 'GEMINI_API_KEY is not configured' });
 
-    // UPDATE: Enforced double line breaks (blank lines) and changed steps to H3 (###)
-    const prompt = `Act as a career counselor and technical mentor. Create a learning roadmap for a student whose goal is: "${goal}".
-Format your response EXACTLY in this strict Markdown structure. 
-CRITICAL: You MUST leave a blank empty line between EVERY single element (the heading, duration, description, and tip) so the frontend Markdown parser renders them correctly.
+    const prompt = `You are a Silicon Valley engineering director and technical career mentor. Create an ultra-practical, structured, step-by-step learning roadmap in GitHub-flavored Markdown for a student whose goal is: "${goal.trim()}".
 
-# Roadmap: Your Learning Path
+CRITICAL FORMATTING INSTRUCTIONS:
+- Structure the response with clear hierarchical Markdown headers (#, ##, ###).
+- Always leave an empty blank line between every heading, table, list item, and blockquote for clean Markdown parsing.
+- Use clean icons, badges in backticks (\`React\`, \`Node.js\`), and actionable milestones.
+- Do NOT output chat preamble. Start immediately with the Markdown title.
 
-(A very short 1-2 sentence intro)
+Use this EXACT structured architecture:
 
-### Step 1: [Title]
+# 🗺️ Master Learning Roadmap: ${goal.trim()}
 
-⏱️ **Duration:** [Time]
+> 🎯 **Career Mission:** [A punchy 2-sentence mission statement summarizing the role, core value proposition, and career trajectory.]
 
-[Short concise description of what to do]
+| ⏱️ Estimated Timeline | 📊 Target Difficulty | 💼 Target Job Roles |
+|---|---|---|
+| [e.g. 4 - 6 Months (10-12 hrs/week)] | [Beginner ➔ Full-Stack Ready] | [List 2-3 specific real-world job titles] |
 
-> 💡 **Pro Tip:** [Actionable tip]
+---
 
-### Step 2: [Title]
+## 📋 Foundational Prerequisites
+* What students should know or set up before diving into Phase 1 (e.g. Basic computer skills, terminal, VS Code, Git).
 
-⏱️ **Duration:** [Time]
+---
 
-[Short concise description of what to do]
+## 🛣️ Phased Learning Milestones
 
-> 💡 **Pro Tip:** [Actionable tip]
+### 📍 Phase 1: [Milestone Title - Fundamentals & Tooling]
+* ⏱️ **Duration:** [e.g. 3 Weeks]
+* 🎯 **Core Learning Focus:**
+  * [Focus item 1]
+  * [Focus item 2]
+  * [Focus item 3]
+* 🛠️ **Tech & Tools to Master:** \`[Tool 1]\`, \`[Tool 2]\`, \`[Tool 3]\`
+* 💻 **Hands-On Portfolio Project:**
+  * **[Project Title]:** [Detailed 2-sentence description of a concrete project to build]
+* 💡 **Mentor's Pro Tip:** [Actionable insider tip on how to practice or avoid getting stuck]
 
-Continue this pattern for exactly 4 to 6 actionable milestones. Do not include summary or concluding paragraphs. Keep it clean and highly structured.`;
+### 📍 Phase 2: [Milestone Title - Core Architecture & Implementation]
+* ⏱️ **Duration:** [e.g. 4 Weeks]
+* 🎯 **Core Learning Focus:**
+  * [Focus item 1]
+  * [Focus item 2]
+  * [Focus item 3]
+* 🛠️ **Tech & Tools to Master:** \`[Tool 1]\`, \`[Tool 2]\`, \`[Tool 3]\`
+* 💻 **Hands-On Portfolio Project:**
+  * **[Project Title]:** [Detailed 2-sentence description of a concrete project to build]
+* 💡 **Mentor's Pro Tip:** [Actionable insider tip]
 
-    await streamGeminiSSE(prompt, res, apiKey, 0.7);
+### 📍 Phase 3: [Milestone Title - Backend, APIs & Data Modeling]
+* ⏱️ **Duration:** [e.g. 4 Weeks]
+* 🎯 **Core Learning Focus:**
+  * [Focus item 1]
+  * [Focus item 2]
+  * [Focus item 3]
+* 🛠️ **Tech & Tools to Master:** \`[Tool 1]\`, \`[Tool 2]\`, \`[Tool 3]\`
+* 💻 **Hands-On Portfolio Project:**
+  * **[Project Title]:** [Detailed 2-sentence description of a concrete project to build]
+* 💡 **Mentor's Pro Tip:** [Actionable insider tip]
+
+### 📍 Phase 4: [Milestone Title - Testing, Cloud Deployment & Scaling]
+* ⏱️ **Duration:** [e.g. 3 Weeks]
+* 🎯 **Core Learning Focus:**
+  * [Focus item 1]
+  * [Focus item 2]
+  * [Focus item 3]
+* 🛠️ **Tech & Tools to Master:** \`[Tool 1]\`, \`[Tool 2]\`, \`[Tool 3]\`
+* 💻 **Hands-On Portfolio Project:**
+  * **[Project Title]:** [Detailed 2-sentence description of a concrete project to build]
+* 💡 **Mentor's Pro Tip:** [Actionable insider tip]
+
+---
+
+## 🏆 Capstone Portfolio Project
+* **Project Name:** [A flagship, comprehensive full-stack capstone project name]
+* **Architecture:** [Summary of frontend, backend, database, and auth stack]
+* **Resume Pitch:** [How to pitch this project in interviews to demonstrate hireability]
+
+---
+
+## 📚 Top Recommended Free Resources
+* 🔗 **Official Documentation:** [Primary docs to reference]
+* 🔗 **Practice Platforms:** [Interactive practice sites or open-source repositories]`;
+
+    await streamGeminiSSE(prompt, res, apiKey, 0.5);
   } catch (err) {
     console.error('AI Roadmap Error:', err.message);
     res.status(500).json({ success: false, message: err.message });

@@ -12,6 +12,7 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 *
 
 // Public
 router.get('/', getAllCourses);
+router.get('/health', (req, res) => res.json({ status: 'ok', service: 'course-service' }));
 router.get('/mine', getInstructorCourses);
 router.get('/:id', getCourse);
 router.get('/:id/enrollment', checkEnrollment);
@@ -42,8 +43,6 @@ router.post('/internal/enroll', enrollUser);
 
 // Internal - review service calls this
 router.put('/:id/rating', updateCourseRating);
-
-router.get('/health', (req, res) => res.json({ status: 'ok', service: 'course-service' }));
 // Q&A Routes
 router.get('/:courseId/qa', getCourseQA);
 router.post('/:courseId/qa', askQuestion);

@@ -1,17 +1,18 @@
 import express from 'express';
 import { createOrder, verifyPayment, razorpayWebhook, getMyPayments, initiateRefund } from '../controllers/payment.controller.js';
+import { verifyToken } from '../../../../shared/middlewares/auth.js';
 
 const router = express.Router();
 
-// Webhook: needs raw body for HMAC signature verification
-router.post('/webhook',      express.raw({ type: 'application/json' }), razorpayWebhook);
+// Webhook: Razorpay calls this with HMAC signature (NO JWT)
+router.post('/webhook', razorpayWebhook);
 
-router.post('/create-order', createOrder);
-router.post('/verify',       verifyPayment);
-router.get('/my-payments',   getMyPayments);
+router.post('/create-order', verifyToken, createOrder);
+router.post('/verify',       verifyToken, verifyPayment);
+router.get('/my-payments',   verifyToken, getMyPayments);
 
 // Admin-only: initiate a refund for a captured payment
-router.post('/refund',       initiateRefund);
+router.post('/refund',       verifyToken, initiateRefund);
 
 router.get('/health', (req, res) => res.json({ status: 'ok', service: 'payment-service' }));
 

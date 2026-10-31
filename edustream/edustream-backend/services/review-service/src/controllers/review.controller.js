@@ -4,6 +4,7 @@ import Course from '../../../course-service/src/models/Course.js';
 import Enrollment from '../../../course-service/src/models/Enrollment.js';
 import { AppError } from '../../../../shared/middlewares/errorHandler.js';
 import { successResponse, HTTP_STATUS } from '../../../../shared/utils/apiResponse.js';
+import { invalidateCache } from '../../../../shared/utils/cache.js';
 
 // ── Helper: Recalculate and Update Course Rating ───────────────
 // WHY: We need to update the Course's average rating not just when
@@ -18,6 +19,8 @@ const recalculateCourseRating = async (courseId) => {
   const ratingCount = stats.length > 0 ? stats[0].count : 0;
 
   await Course.findByIdAndUpdate(courseId, { rating, ratingCount });
+  await invalidateCache('courses:*');
+  await invalidateCache(`course:${courseId}:*`);
 };
 
 // ── Get Course Reviews ──────────────────────────────────────────
@@ -48,6 +51,7 @@ export const getCourseReviews = async (req, res, next) => {
 export const addReview = async (req, res, next) => {
   try {
     const userId = req.headers['x-user-id'];
+    if (!userId) throw new AppError('Unauthorized', 401);
     const userName = req.headers['x-user-name'] || 'Student';
     const { courseId, rating, comment } = req.body;
 
@@ -74,6 +78,7 @@ export const addReview = async (req, res, next) => {
 export const updateReview = async (req, res, next) => {
   try {
     const userId = req.headers['x-user-id'];
+    if (!userId) throw new AppError('Unauthorized', 401);
     const { rating, comment } = req.body;
 
     const review = await Review.findOneAndUpdate(
@@ -94,6 +99,7 @@ export const updateReview = async (req, res, next) => {
 export const deleteReview = async (req, res, next) => {
   try {
     const userId = req.headers['x-user-id'];
+    if (!userId) throw new AppError('Unauthorized', 401);
     const review = await Review.findOneAndDelete({ _id: req.params.reviewId, userId });
     if (!review) throw new AppError('Review not found', 404);
 

@@ -31,6 +31,7 @@ export const verifyToken = async (req, res, next) => {
     req.headers['x-user-role'] = decoded.role;
     req.headers['x-user-email'] = decoded.email;
     req.headers['x-session-id'] = decoded.sessionId;
+    if (decoded.name) req.headers['x-user-name'] = decoded.name;
     
     next();
   } catch (err) {
@@ -55,6 +56,7 @@ export const optionalAuth = async (req, res, next) => {
         req.headers['x-user-id'] = decoded.userId;
         req.headers['x-user-role'] = decoded.role;
         req.headers['x-user-email'] = decoded.email;
+        if (decoded.name) req.headers['x-user-name'] = decoded.name;
       }
     }
   } catch (err) {

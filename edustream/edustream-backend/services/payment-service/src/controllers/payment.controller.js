@@ -154,9 +154,10 @@ export const razorpayWebhook = async (req, res, next) => {
     const webhookSignature = req.headers['x-razorpay-signature'];
 
     // ── Step 1: Verify Webhook Signature ──────────────────────
+    const rawPayload = req.rawBody || (Buffer.isBuffer(req.body) ? req.body : JSON.stringify(req.body));
     const expectedSignature = crypto
       .createHmac('sha256', webhookSecret)
-      .update(JSON.stringify(req.body))
+      .update(rawPayload)
       .digest('hex');
 
     if (expectedSignature !== webhookSignature) {
@@ -176,7 +177,8 @@ export const razorpayWebhook = async (req, res, next) => {
       await setCache(`webhook:event:${eventId}`, true, 24 * 60 * 60); // Store for 24h
     }
 
-    const { event, payload } = req.body;
+    const body = Buffer.isBuffer(req.body) ? JSON.parse(req.body.toString()) : req.body;
+    const { event, payload } = body || {};
     const razorpayPaymentId  = payload?.payment?.entity?.id;
     const razorpayOrderId    = payload?.payment?.entity?.order_id;
 

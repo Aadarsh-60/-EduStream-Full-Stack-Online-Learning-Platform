@@ -28,9 +28,27 @@ const app = express();
 const httpServer = createServer(app);
 const PORT = process.env.PORT || 5000;
 
+const allowedOrigins = process.env.CLIENT_URL
+  ? process.env.CLIENT_URL.split(',').map((u) => u.trim())
+  : ['http://localhost:5173'];
+
+const isOriginAllowed = (origin) => {
+  if (!origin) return true;
+  return (
+    allowedOrigins.includes(origin) ||
+    origin.endsWith('.vercel.app') ||
+    origin.endsWith('.onrender.com')
+  );
+};
+
 // Socket.io setup
 const io = new Server(httpServer, {
-  cors: { origin: process.env.CLIENT_URL || 'http://localhost:5173', credentials: true },
+  cors: {
+    origin: (origin, callback) => {
+      callback(null, isOriginAllowed(origin));
+    },
+    credentials: true,
+  },
 });
 
 setIo(io);
@@ -48,13 +66,25 @@ cloudinary.config({
 });
 
 app.use(helmet());
-app.use(cors({ origin: process.env.CLIENT_URL || 'http://localhost:5173', credentials: true }));
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (isOriginAllowed(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error(`CORS blocked for origin: ${origin}`));
+      }
+    },
+    credentials: true,
+  })
+);
 app.use(morgan('dev'));
 
-// Webhook parsing needs raw body
-app.use('/api/payments/webhook', express.raw({ type: 'application/json' }), paymentRoutes);
-
-app.use(express.json());
+app.use(express.json({
+  verify: (req, res, buf) => {
+    req.rawBody = buf;
+  },
+}));
 
 // Global rate limiter
 const globalLimiter = rateLimit({
@@ -81,11 +111,11 @@ app.use('/api/search', searchRoutes);
 app.use('/api/courses', optionalAuth, courseRoutes);
 app.use('/api/reviews', optionalAuth, reviewRoutes);
 
-// ── Protected Routes (JWT required) ───────────────────────────
-app.use('/api/users', verifyToken, userRoutes);
-app.use('/api/media', verifyToken, mediaRoutes);
-app.use('/api/payments', verifyToken, paymentRoutes);
-app.use('/api/notifications', verifyToken, notificationRoutes);
+// ── Service Routes (Self-protecting with internal & JWT rules) ─
+app.use('/api/users', userRoutes);
+app.use('/api/media', mediaRoutes);
+app.use('/api/payments', paymentRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Health Check
 app.get('/health', (req, res) => res.json({

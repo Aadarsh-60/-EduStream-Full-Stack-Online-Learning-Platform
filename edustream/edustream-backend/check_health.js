@@ -1,13 +1,14 @@
+const base = process.env.BASE_URL || 'http://localhost:5000';
 const services = [
-  'http://localhost:5000/health', // Gateway
-  'http://localhost:5001/api/auth/health', // Auth
-  'http://localhost:5002/api/users/health', // User
-  'http://localhost:5003/api/courses/health', // Course
-  'http://localhost:5004/api/media/health', // Media
-  'http://localhost:5005/api/payments/health', // Payment
-  'http://localhost:5006/api/notifications/health', // Notification
-  'http://localhost:5007/api/reviews/health', // Review
-  'http://localhost:5008/api/search/health', // Search
+  `${base}/health`,                        // Gateway / Monolith
+  `${base}/api/auth/health`,               // Auth Service
+  `${base}/api/users/health`,              // User Service
+  `${base}/api/courses/health`,            // Course Service
+  `${base}/api/media/health`,              // Media Service
+  `${base}/api/payments/health`,           // Payment Service
+  `${base}/api/notifications/health`,      // Notification Service
+  `${base}/api/reviews/health`,            // Review Service
+  `${base}/api/search/health`,             // Search Service
 ];
 
 async function checkHealth() {

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Play, Clock, Users, Star, CheckCircle, Lock, ChevronDown, ChevronUp, ShoppingCart, BookOpen, Heart, Award, X, Sparkles, Loader2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
-import { courseAPI, reviewAPI, paymentAPI, userAPI, searchAPI } from '../services/api.js';
+import { courseAPI, reviewAPI, paymentAPI, userAPI, searchAPI, getApiBaseUrl } from '../services/api.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import toast from 'react-hot-toast';
 import CourseQA from '../components/course/CourseQA.jsx';
@@ -48,33 +48,38 @@ export default function CourseDetailPage() {
     setAiNotes('');
     try {
       const token = localStorage.getItem('accessToken');
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/search/ai/generate-notes`, {
+      const response = await fetch(`${getApiBaseUrl()}/search/ai/generate-notes`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(token && { Authorization: `Bearer ${token}` }) },
         body: JSON.stringify({ courseId: course._id, topic: noteTopic })
       });
       if (!response.ok) throw new Error('Failed to fetch');
 
-      setGeneratingNotes(false); // Stop loading spinner, start typing
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
+      let buffer = '';
       
       while (true) {
         const { value, done } = await reader.read();
         if (done) break;
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split('\n');
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop(); // Keep incomplete line in buffer across chunks
         
         for (const line of lines) {
-          if (line.startsWith('data: ') && line.trim() !== 'data: [DONE]') {
+          const trimmed = line.trim();
+          if (!trimmed || trimmed === 'data: [DONE]') continue;
+          if (trimmed.startsWith('data: ')) {
             try {
-              const data = JSON.parse(line.substring(6));
+              const data = JSON.parse(trimmed.slice(6));
               if (data.text) {
                 setAiNotes(prev => (prev || '') + data.text);
               } else if (data.error) {
                 setAiNotes(`**Error:** ${data.error}. Please try again later.`);
               }
-            } catch (e) { /* ignore chunk boundary parse errors */ }
+            } catch (e) {
+              buffer = line + '\n' + buffer;
+            }
           }
         }
       }
@@ -601,6 +606,7 @@ export default function CourseDetailPage() {
               ) : (
                 <div className="markdown-body" style={{ color: 'var(--lavender)', fontSize: '0.95rem', lineHeight: 1.7 }}>
                   <ReactMarkdown>{aiNotes || ''}</ReactMarkdown>
+                  {generatingNotes && <span className="streaming-cursor" title="Streaming content..." />}
                 </div>
               )}
             </div>

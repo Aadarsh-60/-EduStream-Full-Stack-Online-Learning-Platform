@@ -1,8 +1,15 @@
 import axios from 'axios';
 import toast from 'react-hot-toast';
 
+export const getApiBaseUrl = () => {
+  const envUrl = import.meta.env.VITE_API_URL;
+  if (!envUrl) return '/api';
+  const clean = envUrl.replace(/\/+$/, '');
+  return clean.endsWith('/api') ? clean : `${clean}/api`;
+};
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/api` : '/api',
+  baseURL: getApiBaseUrl(),
   withCredentials: true, // cookies ke liye (refresh token)
 });
 
@@ -22,8 +29,7 @@ api.interceptors.response.use(
     if (err.response?.status === 401 && !original._retry && !original.url.includes('/auth/login') && !original.url.includes('/auth/refresh')) {
       original._retry = true;
       try {
-        const baseURL = import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/api` : '/api';
-        const { data } = await axios.post(`${baseURL}/auth/refresh`, {}, { withCredentials: true });
+        const { data } = await axios.post(`${getApiBaseUrl()}/auth/refresh`, {}, { withCredentials: true });
         const newToken = data.data.accessToken;
         localStorage.setItem('accessToken', newToken);
         original.headers.Authorization = `Bearer ${newToken}`;
@@ -91,6 +97,9 @@ export const userAPI = {
   updateProgress: (data) => api.put('/users/me/progress', data),
   getPublicProfile: (id) => api.get(`/users/profile/${id}`),
   getAllUsers: (p) => api.get('/users/admin/all', { params: p }),
+  createUser: (data) => api.post('/users/admin/create', data),
+  updateUserRole: (userId, role) => api.put(`/users/admin/users/${userId}/role`, { role }),
+  deleteUser: (userId) => api.delete(`/users/admin/users/${userId}`),
   toggleWishlist: (id) => api.post(`/users/me/wishlist/${id}`),
 };
 

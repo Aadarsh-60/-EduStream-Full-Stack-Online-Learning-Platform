@@ -40,9 +40,9 @@ export const askQuestion = async (req, res, next) => {
       const course = await Course.findById(courseId);
       if (!course) return errorResponse(res, HTTP_STATUS.NOT_FOUND, 'Course not found');
 
-      const isInstructor = course.instructor.id.toString() === userId.toString();
+      const isInstructor = course.instructor?.id?.toString() === userId?.toString();
       if (!isInstructor) {
-        const enrollment = await Enrollment.findOne({ courseId, studentId: userId });
+        const enrollment = await Enrollment.findOne({ courseId, userId });
         if (!enrollment) {
           return errorResponse(res, HTTP_STATUS.FORBIDDEN, 'You must be enrolled to ask a question');
         }
@@ -88,9 +88,9 @@ export const replyToQuestion = async (req, res, next) => {
       const course = await Course.findById(courseId);
       if (!course) return errorResponse(res, HTTP_STATUS.NOT_FOUND, 'Course not found');
 
-      const isInstructor = course.instructor.id.toString() === userId.toString();
+      const isInstructor = course.instructor?.id?.toString() === userId?.toString();
       if (!isInstructor) {
-        const enrollment = await Enrollment.findOne({ courseId, studentId: userId });
+        const enrollment = await Enrollment.findOne({ courseId, userId });
         if (!enrollment) {
           return errorResponse(res, HTTP_STATUS.FORBIDDEN, 'You must be enrolled to reply');
         }
