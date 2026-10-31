@@ -1,0 +1,146 @@
+services:
+
+  # ── MongoDB Database ──────────────────────────────────────────
+  mongo:
+    image: mongo:7.0
+    container_name: edustream-mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - edustream-net
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # ── Redis Cache & Rate Limiting ───────────────────────────────
+  redis:
+    image: redis:7.2-alpine
+    container_name: edustream-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - edustream-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── RabbitMQ Event Broker ─────────────────────────────────────
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: edustream-rabbitmq
+    restart: unless-stopped
+    ports:
+      - "5672:5672"       # AMQP port (used by backend)
+      - "15672:15672"     # Management UI: http://localhost:15672 (guest/guest)
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - edustream-net
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 20s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
+  # ── Backend Modular Monolith ──────────────────────────────────
+  backend:
+    build:
+      context: ./edustream/edustream-backend
+      dockerfile: Dockerfile
+    container_name: edustream-backend
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+      CLIENT_URL: http://localhost,http://localhost:5173,http://127.0.0.1
+
+      # Microservice / Modular Monolith Connections
+      MONGO_URI: mongodb://mongo:27017
+      REDIS_URL: redis://redis:6379
+      RABBITMQ_URL: amqp://rabbitmq
+
+      # Authentication Secrets
+      JWT_SECRET: ${JWT_SECRET}
+      ACCESS_TOKEN_SECRET: ${ACCESS_TOKEN_SECRET}
+      ACCESS_TOKEN_EXPIRY: ${ACCESS_TOKEN_EXPIRY:-15m}
+      REFRESH_TOKEN_SECRET: ${REFRESH_TOKEN_SECRET}
+      INTERNAL_SERVICE_SECRET: ${INTERNAL_SERVICE_SECRET:-edustream_internal_2024}
+
+      # Google OAuth
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      GOOGLE_CALLBACK_URL: ${GOOGLE_CALLBACK_URL:-http://localhost:5000/api/auth/google/callback}
+
+      # Cloudinary Media Storage
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET}
+
+      # Google Gemini AI
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+
+      # Razorpay Payment Gateway
+      RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID}
+      RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET}
+      RAZORPAY_WEBHOOK_SECRET: ${RAZORPAY_WEBHOOK_SECRET}
+
+      # Centralized Notification Hub
+      NOTIFICATION_HUB_API_KEY: ${NOTIFICATION_HUB_API_KEY}
+      NOTIFICATION_HUB_API_SECRET: ${NOTIFICATION_HUB_API_SECRET}
+
+      # SMTP Email Delivery
+      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASS: ${SMTP_PASS}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@edustream.com}
+    networks:
+      - edustream-net
+
+  # ── Frontend (React/Vite served via Nginx) ────────────────────
+  frontend:
+    build:
+      context: ./edustream/edustream-frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ""   # Empty string so Nginx /api reverse proxy routes correctly
+    container_name: edustream-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - edustream-net
+
+# ── Persistent Storage Volumes ──────────────────────────────────
+volumes:
+  mongo_data:
+  redis_data:
+  rabbitmq_data:
+
+# ── Shared Network ──────────────────────────────────────────────
+networks:
+  edustream-net:
+    driver: bridge
