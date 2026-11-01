@@ -18,7 +18,12 @@ export const DEFAULT_TTL = 60 * 60;
 let redisClient = null;
 let isRedisAvailable = false;
 
-const redisUrl = process.env.REDIS_URL?.trim();
+let rawRedisUrl = process.env.REDIS_URL?.trim();
+// Automatically sanitize accidental quotes, duplicate REDIS_URL= prefix, etc.
+const redisUrl = rawRedisUrl
+  ? rawRedisUrl.replace(/^REDIS_URL\s*=\s*/i, '').replace(/^["']|["']$/g, '').trim()
+  : null;
+
 const isLocalhostInProd = process.env.NODE_ENV === 'production' && 
   (redisUrl?.includes('localhost') || redisUrl?.includes('127.0.0.1'));
 
