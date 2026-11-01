@@ -18,18 +18,22 @@ export const DEFAULT_TTL = 60 * 60;
 let redisClient = null;
 let isRedisAvailable = false;
 
-// Only try to connect if REDIS_URL is configured
-if (process.env.REDIS_URL) {
+const redisUrl = process.env.REDIS_URL?.trim();
+const isLocalhostInProd = process.env.NODE_ENV === 'production' && 
+  (redisUrl?.includes('localhost') || redisUrl?.includes('127.0.0.1'));
+
+// Only try to connect if REDIS_URL is configured and not pointing to localhost in production
+if (redisUrl && !isLocalhostInProd) {
   try {
-    redisClient = new Redis(process.env.REDIS_URL, {
+    redisClient = new Redis(redisUrl, {
       maxRetriesPerRequest: 1,        // Don't hang forever trying to connect
       connectTimeout: 3000,           // 3-second connection timeout
       lazyConnect: true,              // Don't connect until first command
       enableOfflineQueue: false,      // Don't queue commands when offline
       retryStrategy: (times) => {
-        if (times > 3) {
+        if (times > 2) {
           isRedisAvailable = false;
-          return null; // Stop retrying after 3 attempts
+          return null; // Stop retrying after 2 attempts
         }
         return Math.min(times * 1000, 3000);
       },
@@ -54,8 +58,10 @@ if (process.env.REDIS_URL) {
     console.warn(`⚠️  Redis connection failed. Cache disabled. App still runs normally.`);
     isRedisAvailable = false;
   }
+} else if (isLocalhostInProd) {
+  console.log('ℹ️  REDIS_URL points to localhost in production. Render has no local Redis container. Caching disabled (using MongoDB directly).');
 } else {
-  console.log('ℹ️  No REDIS_URL set. Redis caching is disabled.');
+  console.log('ℹ️  No REDIS_URL set. Redis caching is disabled (using MongoDB directly).');
 }
 
 
