@@ -84,7 +84,7 @@ export default function CreateCoursePage() {
                   value={form.description} onChange={e => set('description', e.target.value)}
                   style={{ resize: 'vertical', lineHeight: 1.6 }} />
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+              <div className="form-grid-2">
                 <div>
                   <label className="input-label">Category *</label>
                   <select className="input" value={form.category} onChange={e => set('category', e.target.value)}
@@ -125,7 +125,7 @@ export default function CreateCoursePage() {
 
           {/* Pricing */}
           <Section title="Pricing" icon={DollarSign}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+            <div className="form-grid-2">
               <div>
                 <label className="input-label">Price (₹) *</label>
                 <input className="input" type="number" min="0" placeholder="499"

@@ -53,46 +53,46 @@ export default function HomePage() {
           <div style={{ position: 'absolute', inset: 0, backgroundImage: 'linear-gradient(rgba(108,99,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(108,99,255,0.03) 1px, transparent 1px)', backgroundSize: '60px 60px' }} />
         </div>
 
-        <div className="container" style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '40px', flexWrap: 'wrap' }}>
-          <div style={{ flex: '1 1 500px', maxWidth: 720, animation: 'fadeUp 0.7s ease' }}>
+        <div className="container" style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '32px', flexWrap: 'wrap' }}>
+          <div style={{ flex: '1 1 100%', maxWidth: 720, minWidth: 0, animation: 'fadeUp 0.7s ease' }}>
 
-            <a href="/courses" style={{ display: 'inline-flex', alignItems: 'center', gap: '10px', padding: '6px 16px 6px 6px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '100px', fontSize: '0.85rem', color: '#e2e8f0', marginBottom: '28px', textDecoration: 'none', transition: 'all 0.3s ease', cursor: 'pointer', boxShadow: '0 4px 15px rgba(0,0,0,0.1)' }}
+            <a href="/courses" style={{ display: 'inline-flex', alignItems: 'center', gap: '10px', padding: '6px 16px 6px 6px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '100px', fontSize: '0.85rem', color: '#e2e8f0', marginBottom: '24px', textDecoration: 'none', transition: 'all 0.3s ease', cursor: 'pointer', boxShadow: '0 4px 15px rgba(0,0,0,0.1)', maxWidth: '100%' }}
               onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; e.currentTarget.style.borderColor = 'rgba(108,99,255,0.3)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
               onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; e.currentTarget.style.transform = 'translateY(0)'; }}>
-              <span style={{ background: 'linear-gradient(135deg, var(--indigo), var(--indigo-dark))', color: '#fff', padding: '4px 10px', borderRadius: '100px', fontSize: '0.75rem', fontWeight: 600, letterSpacing: '0.05em' }}>NEW</span>
-              <span style={{ fontWeight: 500 }}>System Design Cohort 3.0 is now live</span>
-              <ArrowRight size={14} color="var(--muted)" style={{ marginLeft: 4 }} />
+              <span style={{ background: 'linear-gradient(135deg, var(--indigo), var(--indigo-dark))', color: '#fff', padding: '4px 10px', borderRadius: '100px', fontSize: '0.75rem', fontWeight: 600, letterSpacing: '0.05em', flexShrink: 0 }}>NEW</span>
+              <span style={{ fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>System Design Cohort 3.0 is live</span>
+              <ArrowRight size={14} color="var(--muted)" style={{ marginLeft: 4, flexShrink: 0 }} />
             </a>
 
-            <h1 style={{ marginBottom: 24, letterSpacing: '-0.02em', fontSize: 'clamp(2.5rem, 5vw, 4rem)', lineHeight: 1.1 }}>
+            <h1 style={{ marginBottom: 20, letterSpacing: '-0.02em', fontSize: 'clamp(2rem, 6vw, 3.8rem)', lineHeight: 1.15 }}>
               Master skills that{' '}
               <span className="gradient-text">actually matter</span>{' '}
               in tech
             </h1>
 
-            <p style={{ fontSize: '1.15rem', lineHeight: 1.7, marginBottom: 40, color: 'var(--muted)', maxWidth: 540 }}>
+            <p style={{ fontSize: 'clamp(0.95rem, 2.5vw, 1.15rem)', lineHeight: 1.7, marginBottom: 32, color: 'var(--muted)', maxWidth: 540 }}>
               Learn MERN stack, Data Science, DevOps and System Design with project-based courses taught by industry experts.
             </p>
 
             {/* Search bar */}
-            <form onSubmit={handleSearch} style={{ display: 'flex', gap: 12, marginBottom: 16, maxWidth: 540 }}>
-              <div style={{ flex: 1, position: 'relative' }}>
+            <form onSubmit={handleSearch} style={{ display: 'flex', gap: 10, marginBottom: 16, maxWidth: 540, flexWrap: 'wrap' }}>
+              <div style={{ flex: '1 1 220px', minWidth: 0, position: 'relative' }}>
                 <Search size={18} color="var(--muted)" style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)' }} />
                 <input
                   value={searchVal}
                   onChange={e => setSearchVal(e.target.value)}
                   placeholder="Search e.g. Docker, React, Python..."
                   className="input"
-                  style={{ paddingLeft: 44, height: 56, fontSize: '1rem', borderRadius: 14 }}
+                  style={{ paddingLeft: 44, height: 50, fontSize: '0.95rem', borderRadius: 14 }}
                 />
               </div>
-              <button type="submit" className="btn btn-primary" style={{ height: 56, paddingInline: 32, borderRadius: 14, flexShrink: 0, fontSize: '1rem' }}>
+              <button type="submit" className="btn btn-primary" style={{ height: 50, paddingInline: 28, borderRadius: 14, flexShrink: 0, fontSize: '0.95rem' }}>
                 Search
               </button>
             </form>
 
             {/* Popular Tags */}
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 40, alignItems: 'center' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 32, alignItems: 'center' }}>
               <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>Popular:</span>
               {['MERN Stack', 'Python', 'DevOps', 'System Design'].map(t => (
                 <button key={t} onClick={() => navigate(`/courses?q=${t}`)}
@@ -104,17 +104,17 @@ export default function HomePage() {
             </div>
 
             {/* Trust / Stats Box */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 24, flexWrap: 'wrap', padding: '20px 24px', background: 'linear-gradient(135deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01))', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)', maxWidth: 540, boxShadow: '0 10px 30px rgba(0,0,0,0.1)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', padding: '16px 20px', background: 'linear-gradient(135deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01))', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)', maxWidth: 540, boxShadow: '0 10px 30px rgba(0,0,0,0.1)' }}>
 
               {/* Avatars */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <div style={{ display: 'flex' }}>
                   {['https://api.dicebear.com/7.x/avataaars/svg?seed=rahul', 'https://api.dicebear.com/7.x/avataaars/svg?seed=priya', 'https://api.dicebear.com/7.x/avataaars/svg?seed=neha'].map((src, i) => (
-                    <img key={i} src={src} alt="Instructor" style={{ width: 38, height: 38, borderRadius: '50%', border: '2px solid var(--navy)', marginLeft: i > 0 ? -12 : 0, background: 'var(--navy-600)' }} />
+                    <img key={i} src={src} alt="Instructor" style={{ width: 36, height: 36, borderRadius: '50%', border: '2px solid var(--navy)', marginLeft: i > 0 ? -12 : 0, background: 'var(--navy-600)' }} />
                   ))}
                 </div>
                 <div>
-                  <div style={{ color: '#fff', fontWeight: 700, fontSize: '0.95rem', letterSpacing: '-0.01em' }}>50+ Experts</div>
+                  <div style={{ color: '#fff', fontWeight: 700, fontSize: '0.9rem', letterSpacing: '-0.01em' }}>50+ Experts</div>
                   <div style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>Top Instructors</div>
                 </div>
               </div>
@@ -123,11 +123,11 @@ export default function HomePage() {
 
               {/* Rating */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{ background: 'rgba(245, 166, 35, 0.1)', padding: '8px', borderRadius: '10px', display: 'flex' }}>
-                  <Star fill="var(--gold)" color="var(--gold)" size={20} />
+                <div style={{ background: 'rgba(245, 166, 35, 0.1)', padding: '7px', borderRadius: '10px', display: 'flex' }}>
+                  <Star fill="var(--gold)" color="var(--gold)" size={18} />
                 </div>
                 <div>
-                  <div style={{ color: '#fff', fontWeight: 700, fontSize: '0.95rem', letterSpacing: '-0.01em' }}>4.8/5.0 Avg</div>
+                  <div style={{ color: '#fff', fontWeight: 700, fontSize: '0.9rem', letterSpacing: '-0.01em' }}>4.8/5.0 Avg</div>
                   <div style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>from 10k+ reviews</div>
                 </div>
               </div>
@@ -237,12 +237,12 @@ export default function HomePage() {
 
       {/* ── Stats ──────────────────────────────────────────────── */}
       <section style={{ borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)', background: 'var(--glass)' }}>
-        <div className="container" style={{ padding: '40px 24px' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 24 }}>
+        <div className="container" style={{ padding: '36px 16px' }}>
+          <div className="grid-stats">
             {STATS.map(({ icon: Icon, value, label }) => (
               <div key={label} style={{ textAlign: 'center' }}>
                 <Icon size={22} color="var(--indigo-light)" style={{ margin: '0 auto 8px' }} />
-                <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.8rem', fontWeight: 800, color: '#fff' }}>{value}</div>
+                <div style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(1.4rem, 4vw, 1.8rem)', fontWeight: 800, color: '#fff' }}>{value}</div>
                 <div style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>{label}</div>
               </div>
             ))}
@@ -343,7 +343,7 @@ export default function HomePage() {
             <div style={{
               background: 'linear-gradient(135deg, rgba(108,99,255,0.15), rgba(79,70,229,0.1))',
               border: '1px solid rgba(108,99,255,0.2)',
-              borderRadius: 'var(--radius-xl)', padding: '60px 48px', textAlign: 'center',
+              borderRadius: 'var(--radius-xl)', padding: 'clamp(36px, 6vw, 60px) clamp(18px, 5vw, 48px)', textAlign: 'center',
               position: 'relative', overflow: 'hidden',
             }}>
               <div style={{ position: 'absolute', top: -60, right: -60, width: 200, height: 200, borderRadius: '50%', background: 'radial-gradient(circle, rgba(108,99,255,0.2), transparent)', filter: 'blur(30px)' }} />

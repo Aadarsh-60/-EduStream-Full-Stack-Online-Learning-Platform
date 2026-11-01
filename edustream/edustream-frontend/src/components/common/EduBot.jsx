@@ -58,9 +58,10 @@ export default function EduBot() {
       {/* Floating Toggle Button */}
       <button 
         onClick={() => setIsOpen(!isOpen)}
+        aria-label="Open AI chatbot"
         style={{
-          position: 'fixed', bottom: 24, right: 24, zIndex: 9999,
-          width: 60, height: 60, borderRadius: '50%', border: 'none',
+          position: 'fixed', bottom: 'clamp(16px, 4vw, 24px)', right: 'clamp(16px, 4vw, 24px)', zIndex: 9999,
+          width: 52, height: 52, borderRadius: '50%', border: 'none',
           background: 'linear-gradient(135deg, var(--indigo-dark), var(--indigo))',
           color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
           boxShadow: '0 8px 32px rgba(79, 70, 229, 0.4)', cursor: 'pointer',
@@ -68,13 +69,13 @@ export default function EduBot() {
           transform: isOpen ? 'scale(0)' : 'scale(1)', opacity: isOpen ? 0 : 1
         }}
       >
-        <MessageSquare size={28} />
+        <MessageSquare size={24} />
       </button>
 
       {/* Chat Window */}
       <div style={{
-        position: 'fixed', bottom: 24, right: 24, zIndex: 10000,
-        width: 380, height: 500, maxWidth: 'calc(100vw - 48px)', maxHeight: 'calc(100vh - 48px)',
+        position: 'fixed', bottom: 'clamp(12px, 3vw, 24px)', right: 'clamp(12px, 3vw, 24px)', zIndex: 10000,
+        width: 380, height: 500, maxWidth: 'calc(100vw - 24px)', maxHeight: 'calc(100vh - 32px)',
         background: 'var(--card-bg)', border: '1px solid var(--border)',
         borderRadius: 20, boxShadow: 'var(--shadow-card)',
         display: 'flex', flexDirection: 'column', overflow: 'hidden',

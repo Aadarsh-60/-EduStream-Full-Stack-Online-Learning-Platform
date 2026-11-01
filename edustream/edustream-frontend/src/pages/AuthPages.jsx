@@ -242,11 +242,11 @@ export function LoginPage() {
         </div>
 
         <a href={`${getApiBaseUrl()}/auth/google?role=${form.role}`} className="btn" style={{ 
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, 
-          background: '#fff', color: '#333', height: 48, width: '100%', borderRadius: 'var(--radius-sm)', transition: 'background 0.2s'
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, 
+          background: '#fff', color: '#333', minHeight: 48, height: 'auto', padding: '10px 14px', width: '100%', borderRadius: 'var(--radius-sm)', transition: 'background 0.2s', whiteSpace: 'normal'
         }} onMouseEnter={e => e.currentTarget.style.background = '#f1f1f1'} onMouseLeave={e => e.currentTarget.style.background = '#fff'}>
           <GoogleIcon />
-          <span style={{ fontWeight: 600 }}>Continue with Google as {form.role === 'instructor' ? 'Instructor' : 'Student'}</span>
+          <span style={{ fontWeight: 600, fontSize: '0.88rem', textAlign: 'center' }}>Continue with Google as {form.role === 'instructor' ? 'Instructor' : 'Student'}</span>
         </a>
 
         <p style={{ textAlign: 'center', fontSize: '0.85rem', marginTop: 8 }}>
@@ -332,11 +332,11 @@ export function RegisterPage() {
         </div>
 
         <a href={`${getApiBaseUrl()}/auth/google?role=${form.role}`} className="btn" style={{ 
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, 
-          background: '#fff', color: '#333', height: 48, width: '100%', borderRadius: 'var(--radius-sm)', transition: 'background 0.2s'
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, 
+          background: '#fff', color: '#333', minHeight: 48, height: 'auto', padding: '10px 14px', width: '100%', borderRadius: 'var(--radius-sm)', transition: 'background 0.2s', whiteSpace: 'normal'
         }} onMouseEnter={e => e.currentTarget.style.background = '#f1f1f1'} onMouseLeave={e => e.currentTarget.style.background = '#fff'}>
           <GoogleIcon />
-          <span style={{ fontWeight: 600 }}>Continue with Google as {form.role === 'instructor' ? 'Instructor' : 'Student'}</span>
+          <span style={{ fontWeight: 600, fontSize: '0.88rem', textAlign: 'center' }}>Continue with Google as {form.role === 'instructor' ? 'Instructor' : 'Student'}</span>
         </a>
 
         <p style={{ textAlign: 'center', fontSize: '0.85rem', marginTop: 8 }}>
@@ -349,20 +349,20 @@ export function RegisterPage() {
 
 function AuthLayout({ title, subtitle, children }) {
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px', paddingTop: 88, position: 'relative' }}>
+    <div className="auth-wrapper">
       <div style={{ position: 'absolute', top: '20%', left: '10%', width: 500, height: 500, borderRadius: '50%', background: 'radial-gradient(circle, rgba(108,99,255,0.1), transparent)', filter: 'blur(50px)', pointerEvents: 'none' }} />
-      <div style={{ width: '100%', maxWidth: 480, position: 'relative', zIndex: 1 }}>
-        <div style={{ textAlign: 'center', marginBottom: 36 }}>
-          <Link to="/" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 24 }}>
-            <div style={{ width: 44, height: 44, borderRadius: 12, background: 'linear-gradient(135deg, #6C63FF, #4F46E5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <BookOpen size={22} color="#fff" />
+      <div style={{ width: '100%', maxWidth: 460, position: 'relative', zIndex: 1 }}>
+        <div style={{ textAlign: 'center', marginBottom: 28 }}>
+          <Link to="/" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
+            <div style={{ width: 40, height: 40, borderRadius: 12, background: 'linear-gradient(135deg, #6C63FF, #4F46E5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <BookOpen size={20} color="#fff" />
             </div>
-            <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '1.4rem', color: 'var(--text-main)' }}>EduStream</span>
+            <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '1.3rem', color: 'var(--text-main)' }}>EduStream</span>
           </Link>
-          <h2 style={{ marginBottom: 8, fontSize: '1.8rem' }}>{title}</h2>
-          <p style={{ fontSize: '1rem' }}>{subtitle}</p>
+          <h2 style={{ marginBottom: 8, fontSize: 'clamp(1.4rem, 4vw, 1.8rem)' }}>{title}</h2>
+          <p style={{ fontSize: '0.95rem' }}>{subtitle}</p>
         </div>
-        <div style={{ background: 'var(--glass)', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-xl)', padding: '40px', backdropFilter: 'blur(20px)' }}>
+        <div className="auth-card">
           {children}
         </div>
       </div>

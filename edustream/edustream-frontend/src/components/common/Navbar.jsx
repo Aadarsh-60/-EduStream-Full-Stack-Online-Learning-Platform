@@ -59,7 +59,7 @@ export default function Navbar() {
       {/* Top Gradient Liner */}
       <div style={{ height: '3px', width: '100%', background: 'linear-gradient(90deg, var(--indigo), var(--gold), var(--success))' }} />
 
-      <div className="container" style={{ display: 'flex', alignItems: 'center', gap: 16, height: 68 }}>
+      <div className="container" style={{ display: 'flex', alignItems: 'center', gap: 10, height: 64 }}>
 
         {/* Navigation History */}
         <div style={{ display: 'flex', gap: 4, marginRight: 8 }} className="desktop-only">
@@ -80,7 +80,7 @@ export default function Navbar() {
           }}>
             <BookOpen size={16} color="#fff" />
           </div>
-          <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '1.1rem', color: 'var(--text-main)' }}>
+          <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '1.05rem', color: 'var(--text-main)' }}>
             Edu<span style={{ color: 'var(--indigo-light)' }}>Stream</span>
           </span>
         </Link>
@@ -112,22 +112,23 @@ export default function Navbar() {
         </form>
 
         {/* Right side */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 'auto' }}>
           
           {/* Theme Toggle */}
           <button 
             onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
             className="btn btn-ghost btn-sm" 
-            style={{ padding: 8 }}
+            style={{ padding: '6px 8px' }}
+            title="Toggle theme"
           >
-            {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+            {theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}
           </button>
 
           {user ? (
             <>
               {/* Notifications */}
-              <Link to="/dashboard#notifications" onClick={() => window.dispatchEvent(new Event('open-notifications'))} className="btn btn-ghost btn-sm" style={{ padding: 8, position: 'relative' }}>
-                <Bell size={18} />
+              <Link to="/dashboard#notifications" onClick={() => window.dispatchEvent(new Event('open-notifications'))} className="btn btn-ghost btn-sm" style={{ padding: '6px 8px', position: 'relative' }}>
+                <Bell size={17} />
                 {unreadCount > 0 && (
                   <span style={{
                     position: 'absolute', top: 4, right: 4, width: 8, height: 8,
@@ -146,13 +147,13 @@ export default function Navbar() {
               <div style={{ position: 'relative' }}>
                 <button
                   onClick={() => setDropOpen(!dropOpen)}
-                  style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--glass)', border: '1px solid var(--glass-border)', borderRadius: 10, padding: '6px 12px', cursor: 'pointer', color: 'var(--text-main)' }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--glass)', border: '1px solid var(--glass-border)', borderRadius: 10, padding: '5px 10px', cursor: 'pointer', color: 'var(--text-main)' }}
                 >
-                  <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'linear-gradient(135deg, var(--indigo), var(--indigo-dark))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 600 }}>
+                  <div style={{ width: 26, height: 26, borderRadius: '50%', background: 'linear-gradient(135deg, var(--indigo), var(--indigo-dark))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.72rem', fontWeight: 600 }}>
                     {user.name?.[0]?.toUpperCase()}
                   </div>
-                  <span style={{ fontSize: '0.85rem', fontWeight: 500 }} className="desktop-only">{user.name?.split(' ')[0]}</span>
-                  <ChevronDown size={14} color="var(--muted)" />
+                  <span style={{ fontSize: '0.82rem', fontWeight: 500 }} className="desktop-only">{user.name?.split(' ')[0]}</span>
+                  <ChevronDown size={13} color="var(--muted)" />
                 </button>
 
                 {dropOpen && (
@@ -183,25 +184,72 @@ export default function Navbar() {
           ) : (
             <>
               <Link to="/login" className="btn btn-ghost btn-sm desktop-only">Login</Link>
-              <Link to="/register" className="btn btn-primary btn-sm">Get Started</Link>
+              <Link to="/register" className="btn btn-primary btn-sm" style={{ padding: '6px 12px', fontSize: '0.82rem' }}>Get Started</Link>
             </>
           )}
 
           {/* Mobile menu toggle */}
-          <button className="btn btn-ghost mobile-only" onClick={() => setMenuOpen(!menuOpen)} style={{ padding: 8 }}>
+          <button className="btn btn-ghost mobile-only" onClick={() => setMenuOpen(!menuOpen)} style={{ padding: '6px 8px' }} aria-label="Toggle navigation">
             {menuOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
         </div>
       </div>
 
-      {/* Mobile menu */}
+      {/* Mobile drawer */}
       {menuOpen && (
-        <div style={{ background: 'var(--navy-800)', borderTop: '1px solid var(--border)', padding: '16px 24px' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <Link to="/" onClick={() => setMenuOpen(false)} style={{ padding: '10px 12px', color: 'var(--lavender)', fontSize: '0.9rem' }}>Home</Link>
-            <Link to="/courses" onClick={() => setMenuOpen(false)} style={{ padding: '10px 12px', color: 'var(--lavender)', fontSize: '0.9rem' }}>Courses</Link>
-            {user && <Link to="/dashboard" onClick={() => setMenuOpen(false)} style={{ padding: '10px 12px', color: 'var(--lavender)', fontSize: '0.9rem' }}>Dashboard</Link>}
-            {!user && <Link to="/login" onClick={() => setMenuOpen(false)} className="btn btn-outline" style={{ marginTop: 8 }}>Login</Link>}
+        <div style={{
+          background: 'rgba(13, 20, 40, 0.98)',
+          backdropFilter: 'blur(16px)',
+          borderTop: '1px solid var(--border)',
+          borderBottom: '1px solid var(--border)',
+          padding: '16px',
+          maxHeight: 'calc(100vh - 70px)',
+          overflowY: 'auto'
+        }}>
+          {/* Mobile Search */}
+          <form onSubmit={(e) => { handleSearch(e); setMenuOpen(false); }} style={{ marginBottom: 14 }}>
+            <div style={{ position: 'relative' }}>
+              <Search size={15} color="var(--muted)" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)' }} />
+              <input
+                value={searchVal}
+                onChange={e => setSearchVal(e.target.value)}
+                placeholder="Search courses..."
+                className="input"
+                style={{ paddingLeft: 36, paddingTop: 10, paddingBottom: 10, fontSize: '0.9rem' }}
+              />
+            </div>
+          </form>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <Link to="/" onClick={() => setMenuOpen(false)} style={{ padding: '10px 12px', borderRadius: 8, color: isActive('/') ? 'var(--indigo-light)' : 'var(--lavender)', background: isActive('/') ? 'rgba(108,99,255,0.1)' : 'transparent', fontSize: '0.92rem', fontWeight: 500 }}>
+              Home
+            </Link>
+            <Link to="/courses" onClick={() => setMenuOpen(false)} style={{ padding: '10px 12px', borderRadius: 8, color: isActive('/courses') ? 'var(--indigo-light)' : 'var(--lavender)', background: isActive('/courses') ? 'rgba(108,99,255,0.1)' : 'transparent', fontSize: '0.92rem', fontWeight: 500 }}>
+              Browse Courses
+            </Link>
+            {user ? (
+              <>
+                <Link to="/dashboard" onClick={() => setMenuOpen(false)} style={{ padding: '10px 12px', borderRadius: 8, color: isActive('/dashboard') ? 'var(--indigo-light)' : 'var(--lavender)', background: isActive('/dashboard') ? 'rgba(108,99,255,0.1)' : 'transparent', fontSize: '0.92rem', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <LayoutDashboard size={16} /> Dashboard
+                </Link>
+                <Link to="/profile" onClick={() => setMenuOpen(false)} style={{ padding: '10px 12px', borderRadius: 8, color: isActive('/profile') ? 'var(--indigo-light)' : 'var(--lavender)', background: isActive('/profile') ? 'rgba(108,99,255,0.1)' : 'transparent', fontSize: '0.92rem', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <User size={16} /> Profile & Settings
+                </Link>
+                <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '8px 0' }} />
+                <button onClick={() => { setMenuOpen(false); handleLogout(); }} style={{ padding: '10px 12px', borderRadius: 8, color: '#EF4444', background: 'transparent', border: 'none', fontSize: '0.92rem', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 8, textAlign: 'left', cursor: 'pointer' }}>
+                  <LogOut size={16} /> Logout
+                </button>
+              </>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 10 }}>
+                <Link to="/login" onClick={() => setMenuOpen(false)} className="btn btn-outline" style={{ width: '100%' }}>
+                  Login
+                </Link>
+                <Link to="/register" onClick={() => setMenuOpen(false)} className="btn btn-primary" style={{ width: '100%' }}>
+                  Get Started Free
+                </Link>
+              </div>
+            )}
           </div>
         </div>
       )}

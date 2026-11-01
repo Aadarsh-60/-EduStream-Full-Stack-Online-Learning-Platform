@@ -233,7 +233,7 @@ export default function CourseDetailPage() {
   if (loading) return (
     <div style={{ paddingTop: 88, minHeight: '100vh' }}>
       <div className="container" style={{ paddingTop: 32 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 360px', gap: 32 }}>
+        <div className="course-detail-grid">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             {[1,2,3].map(i => <div key={i} className="skeleton" style={{ height: i===1 ? 60 : 40, borderRadius: 10 }} />)}
           </div>
@@ -268,17 +268,17 @@ export default function CourseDetailPage() {
   return (
     <div style={{ paddingTop: 68, minHeight: '100vh' }}>
       {/* Hero banner */}
-      <div style={{ background: 'linear-gradient(135deg, var(--navy-800), var(--navy-600))', borderBottom: '1px solid var(--border)', padding: '40px 0' }}>
-        <div className="container" style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 32, alignItems: 'start' }}>
-          <div style={{ maxWidth: 680 }}>
+      <div style={{ background: 'linear-gradient(135deg, var(--navy-800), var(--navy-600))', borderBottom: '1px solid var(--border)', padding: '36px 0' }}>
+        <div className="container" style={{ display: 'flex', flexDirection: 'column', gap: 20, alignItems: 'flex-start' }}>
+          <div style={{ maxWidth: 760 }}>
             <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
               <span className="badge badge-indigo" style={{ textTransform: 'capitalize' }}>{course.level}</span>
               <span className="badge badge-muted">{course.category}</span>
               <span className="badge badge-muted">{course.language}</span>
             </div>
-            <h1 style={{ fontSize: 'clamp(1.4rem, 3vw, 2rem)', marginBottom: 14, lineHeight: 1.3 }}>{course.title}</h1>
+            <h1 style={{ fontSize: 'clamp(1.4rem, 3.5vw, 2.2rem)', marginBottom: 14, lineHeight: 1.3 }}>{course.title}</h1>
             <p style={{ fontSize: '0.95rem', lineHeight: 1.7, marginBottom: 20, color: '#c4c8d8' }}>{course.description?.slice(0, 200)}...</p>
-            <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', fontSize: '0.875rem', color: 'var(--muted)' }}>
+            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: '0.875rem', color: 'var(--muted)' }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><Star size={14} color="var(--gold)" fill="var(--gold)" /><strong style={{ color: 'var(--gold)' }}>{course.rating}</strong> ({course.ratingCount} reviews)</span>
               <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><Users size={14} />{course.enrolledCount?.toLocaleString()} students</span>
               <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><Play size={14} />{course.totalLectures} lectures</span>
@@ -290,7 +290,7 @@ export default function CourseDetailPage() {
       </div>
 
       <div className="container" style={{ paddingTop: 32, paddingBottom: 60 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 32, alignItems: 'start' }}>
+        <div className="course-detail-grid">
 
           {/* Left content */}
           <div>

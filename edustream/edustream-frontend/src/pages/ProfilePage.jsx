@@ -500,8 +500,8 @@ export default function ProfilePage() {
             </div>
 
             {/* Active Sessions & Device Tracking */}
-            <div className="card" style={{ padding: 28 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+            <div className="card" style={{ padding: 'clamp(18px, 4vw, 28px)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
                 <div>
                   <h3 style={{ fontSize: '1.05rem', marginBottom: 4 }}>Active Devices & Sessions</h3>
                   <p style={{ color: 'var(--muted)', fontSize: '0.82rem' }}>
@@ -532,9 +532,11 @@ export default function ProfilePage() {
                         borderRadius: 10,
                         background: 'var(--glass)',
                         border: '1px solid var(--glass-border)',
+                        flexWrap: 'wrap',
+                        gap: 12,
                       }}
                     >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 200, flex: 1 }}>
                         <div
                           style={{
                             width: 38,
@@ -545,12 +547,13 @@ export default function ProfilePage() {
                             alignItems: 'center',
                             justifyContent: 'center',
                             color: 'var(--indigo-light)',
+                            flexShrink: 0,
                           }}
                         >
                           {/phone|mobile|ios|android/i.test(s.device) ? <Smartphone size={18} /> : <Laptop size={18} />}
                         </div>
-                        <div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                             <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--lavender)' }}>
                               {s.device}
                             </span>
@@ -569,7 +572,7 @@ export default function ProfilePage() {
                               </span>
                             )}
                           </div>
-                          <p style={{ fontSize: '0.78rem', color: 'var(--muted)', marginTop: 2 }}>
+                          <p style={{ fontSize: '0.78rem', color: 'var(--muted)', marginTop: 2, wordBreak: 'break-word' }}>
                             IP: {s.ip} • Last active: {new Date(s.lastActive || s.createdAt).toLocaleString()}
                           </p>
                         </div>
@@ -579,13 +582,12 @@ export default function ProfilePage() {
                         <button
                           type="button"
                           onClick={() => handleRevokeSession(s.id)}
+                          className="btn btn-outline btn-sm"
                           style={{
-                            background: 'none',
-                            border: 'none',
                             color: 'var(--error)',
-                            cursor: 'pointer',
-                            fontSize: '0.82rem',
-                            fontWeight: 500,
+                            borderColor: 'rgba(239, 68, 68, 0.3)',
+                            padding: '6px 14px',
+                            marginLeft: 'auto'
                           }}
                         >
                           Revoke
@@ -599,7 +601,7 @@ export default function ProfilePage() {
 
             {/* Login History Audit */}
             {loginHistory.length > 0 && (
-              <div className="card" style={{ padding: 28 }}>
+              <div className="card" style={{ padding: 'clamp(18px, 4vw, 28px)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
                   <History size={18} color="var(--indigo-light)" />
                   <h3 style={{ fontSize: '1.05rem' }}>Recent Security Audit Log</h3>
@@ -616,6 +618,8 @@ export default function ProfilePage() {
                         borderRadius: 8,
                         background: 'rgba(255,255,255,0.02)',
                         fontSize: '0.82rem',
+                        flexWrap: 'wrap',
+                        gap: 8,
                         borderLeft: `3px solid ${
                           item.status === 'success'
                             ? '#10b981'

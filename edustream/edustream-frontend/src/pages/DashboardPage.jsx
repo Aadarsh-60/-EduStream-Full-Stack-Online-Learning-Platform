@@ -728,13 +728,13 @@ function AdminDashboard({ user }) {
       </div>
 
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: 12, marginBottom: 24 }}>
+      <div style={{ display: 'flex', gap: 12, marginBottom: 24, flexWrap: 'wrap' }}>
         <button onClick={() => { setActiveTab('users'); setFilterRole('all'); }} className={`btn ${activeTab === 'users' ? 'btn-primary' : 'btn-outline'}`}>User Management</button>
         <button onClick={() => setActiveTab('courses')} className={`btn ${activeTab === 'courses' ? 'btn-primary' : 'btn-outline'}`}>Course Overview</button>
       </div>
 
       {/* Tab Content */}
-      <div className="card" style={{ padding: 24, minHeight: 400 }}>
+      <div className="card" style={{ padding: 'clamp(16px, 4vw, 24px)', minHeight: 400 }}>
         {loading ? (
           <div style={{ textAlign: 'center', padding: 40, color: 'var(--muted)' }}>Loading admin data...</div>
         ) : activeTab === 'notifications' ? (
@@ -771,11 +771,11 @@ function AdminDashboard({ user }) {
             ))}
           </div>
         ) : activeTab === 'users' ? (
-          <div style={{ overflowX: 'auto' }}>
+          <div className="table-responsive">
             <div style={{ marginBottom: 16, fontSize: '0.9rem', color: 'var(--muted)' }}>
               Showing {filterRole === 'all' ? 'All Users' : filterRole === 'student' ? 'Students Only' : 'Instructors Only'}
             </div>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 520 }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--border)', textAlign: 'left' }}>
                   <th style={{ padding: '12px 16px', color: 'var(--muted)', fontWeight: 500 }}>User</th>
@@ -813,8 +813,8 @@ function AdminDashboard({ user }) {
             </table>
           </div>
         ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <div className="table-responsive">
+            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 520 }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--border)', textAlign: 'left' }}>
                   <th style={{ padding: '12px 16px', color: 'var(--muted)', fontWeight: 500 }}>Course</th>
