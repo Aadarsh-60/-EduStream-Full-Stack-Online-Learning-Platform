@@ -336,10 +336,11 @@ export const verify2FALogin = async (req, res, next) => {
         expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days
       });
       
+      const isProd = process.env.NODE_ENV === 'production';
       res.cookie('trustedDeviceToken', trustToken, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
+        secure: isProd,
+        sameSite: isProd ? 'none' : 'lax',
         maxAge: 30 * 24 * 60 * 60 * 1000,
       });
     }
@@ -717,10 +718,11 @@ export const logout = async (req, res, next) => {
       });
     }
 
+    const isProd = process.env.NODE_ENV === 'production';
     res.clearCookie('refreshToken', {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      secure: isProd,
+      sameSite: isProd ? 'none' : 'lax',
     });
     return successResponse(res, HTTP_STATUS.OK, 'Logged out successfully');
   } catch (err) {

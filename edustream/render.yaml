@@ -50,11 +50,23 @@ services:
         sync: false
       - key: NOTIFICATION_HUB_API_SECRET
         sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_CALLBACK_URL
+        sync: false
+      - key: SMTP_HOST
+        value: smtp.gmail.com
+      - key: SMTP_PORT
+        value: 587
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
       - key: CLIENT_URL
-        fromService:
-          type: web
-          name: edustream-frontend
-          property: url
+        sync: false
+
 
   # ── EduStream Frontend (React/Vite Static Site) ───────────────
   - type: web

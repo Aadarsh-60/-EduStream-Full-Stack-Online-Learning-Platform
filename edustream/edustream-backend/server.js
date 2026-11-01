@@ -3,6 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
+import cookieParser from 'cookie-parser';
 import mongoose from 'mongoose';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
@@ -27,6 +28,9 @@ import searchRoutes from './services/search-service/src/routes/search.routes.js'
 const app = express();
 const httpServer = createServer(app);
 const PORT = process.env.PORT || 5000;
+
+// Render and other cloud platforms sit behind reverse proxies
+app.set('trust proxy', 1);
 
 const allowedOrigins = process.env.CLIENT_URL
   ? process.env.CLIENT_URL.split(',').map((u) => u.trim())
@@ -65,7 +69,13 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-app.use(helmet());
+app.use(
+  helmet({
+    crossOriginEmbedderPolicy: false,
+    crossOriginOpenerPolicy: false,
+  })
+);
+app.use(cookieParser());
 app.use(
   cors({
     origin: (origin, callback) => {
@@ -83,6 +93,7 @@ app.use(morgan('dev'));
 app.use(express.json({
   verify: (req, res, buf) => {
     req.rawBody = buf;
+
   },
 }));
 

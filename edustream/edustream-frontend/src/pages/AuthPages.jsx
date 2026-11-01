@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, BookOpen, Mail, Lock, User, ArrowRight, ShieldCheck, KeyRound, ArrowLeft } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
-import { authAPI } from '../services/api.js';
+import { authAPI, getApiBaseUrl } from '../services/api.js';
 import toast from 'react-hot-toast';
 
 const GoogleIcon = () => (
@@ -241,7 +241,7 @@ export function LoginPage() {
           </div>
         </div>
 
-        <a href={`${import.meta.env.VITE_API_URL || ''}/api/auth/google?role=${form.role}`} className="btn" style={{ 
+        <a href={`${getApiBaseUrl()}/auth/google?role=${form.role}`} className="btn" style={{ 
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, 
           background: '#fff', color: '#333', height: 48, width: '100%', borderRadius: 'var(--radius-sm)', transition: 'background 0.2s'
         }} onMouseEnter={e => e.currentTarget.style.background = '#f1f1f1'} onMouseLeave={e => e.currentTarget.style.background = '#fff'}>
@@ -331,7 +331,7 @@ export function RegisterPage() {
           <div style={{ flex: 1, height: 1, background: 'var(--glass-border)' }} />
         </div>
 
-        <a href={`${import.meta.env.VITE_API_URL || ''}/api/auth/google?role=${form.role}`} className="btn" style={{ 
+        <a href={`${getApiBaseUrl()}/auth/google?role=${form.role}`} className="btn" style={{ 
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, 
           background: '#fff', color: '#333', height: 48, width: '100%', borderRadius: 'var(--radius-sm)', transition: 'background 0.2s'
         }} onMouseEnter={e => e.currentTarget.style.background = '#f1f1f1'} onMouseLeave={e => e.currentTarget.style.background = '#fff'}>

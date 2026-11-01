@@ -52,17 +52,41 @@ router.delete('/sessions/:sessionId', verifyToken, revokeSession);
 // ── Secure OAuth 2.0 with One-Time Code Exchange (Level 4) ─────
 router.post('/google/exchange', exchangeOAuthCode);
 
+import { isGoogleOAuthConfigured } from '../config/passport.js';
+
+const getClientRedirectUrl = (req) => {
+  const clientEnv = process.env.CLIENT_URL;
+  if (clientEnv) {
+    const urls = clientEnv.split(',').map((u) => u.trim().replace(/\/+$/, ''));
+    const prodUrl = urls.find((u) => !u.includes('localhost'));
+    return prodUrl || urls[0];
+  }
+  return 'http://localhost:5173';
+};
+
 router.get('/google', (req, res, next) => {
+  const clientUrl = getClientRedirectUrl(req);
+  if (!isGoogleOAuthConfigured()) {
+    const errorMsg = encodeURIComponent('Google OAuth is not configured on the server. Please add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to Render environment variables.');
+    return res.redirect(`${clientUrl}/login?error=${errorMsg}`);
+  }
+
   const role = req.query.role || 'student';
   passport.authenticate('google', { scope: ['profile', 'email'], state: role })(req, res, next);
 });
 
 router.get('/google/callback', (req, res, next) => {
+  const clientUrl = getClientRedirectUrl(req);
+  if (!isGoogleOAuthConfigured()) {
+    const errorMsg = encodeURIComponent('Google OAuth is not configured on the server.');
+    return res.redirect(`${clientUrl}/login?error=${errorMsg}`);
+  }
+
   passport.authenticate('google', { session: false }, (err, data, info) => {
     if (err || !data) {
       console.error('OAuth Error:', err || info);
-      const errorMsg = info?.message ? encodeURIComponent(info.message) : 'oauth_failed';
-      return res.redirect(`${process.env.CLIENT_URL || 'http://localhost:5173'}/login?error=${errorMsg}`);
+      const errorMsg = encodeURIComponent(info?.message || err?.message || 'oauth_failed');
+      return res.redirect(`${clientUrl}/login?error=${errorMsg}`);
     }
 
     const { user, accessToken, refreshToken, twoFactorEnabled } = data;
@@ -90,9 +114,10 @@ router.get('/google/callback', (req, res, next) => {
     }
 
     // Redirect with single-use authorization code ONLY (No JWT token in URL)
-    res.redirect(`${process.env.CLIENT_URL || 'http://localhost:5173'}/oauth-success?code=${exchangeCode}`);
+    res.redirect(`${clientUrl}/oauth-success?code=${exchangeCode}`);
   })(req, res, next);
 });
+
 
 router.get('/health', (req, res) => res.json({ status: 'ok', service: 'auth-service' }));
 

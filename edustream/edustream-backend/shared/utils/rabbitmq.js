@@ -1,14 +1,28 @@
 import amqp from 'amqplib';
+import { EventEmitter } from 'events';
 
 let connection = null;
 let channel = null;
+
+// Resilient in-process EventBus fallback for monolithic deployment (e.g. Render free tier)
+const fallbackBus = new EventEmitter();
+fallbackBus.setMaxListeners(50);
 
 export const connectRabbitMQ = async () => {
   if (connection && channel) return { connection, channel };
 
   try {
-    const rabbitUrl = process.env.RABBITMQ_URL || 'amqp://localhost';
-    connection = await amqp.connect(rabbitUrl);
+    const rabbitUrl = process.env.RABBITMQ_URL;
+    // On production platforms like Render without a cloud AMQP broker URL, avoid spamming ECONNREFUSED
+    if (!rabbitUrl || rabbitUrl === 'amqp://localhost') {
+      if (process.env.NODE_ENV === 'production' && !process.env.RABBITMQ_URL) {
+        console.log('ℹ️ No external RABBITMQ_URL configured on Render. Operating with in-process resilient EventBus.');
+        return { connection: null, channel: null };
+      }
+    }
+
+    const targetUrl = rabbitUrl || 'amqp://localhost';
+    connection = await amqp.connect(targetUrl);
     channel = await connection.createChannel();
     
     // Assert exchanges
@@ -37,8 +51,10 @@ export const connectRabbitMQ = async () => {
 
     return { connection, channel };
   } catch (error) {
-    console.warn('⚠️ RabbitMQ connection failed. Ensure RabbitMQ is running:', error.message);
-    // Silent fail so app doesn't crash if RabbitMQ is not available locally yet
+    console.warn(`⚠️ RabbitMQ broker not reachable (${error.message}). Activating in-process resilient EventBus.`);
+    connection = null;
+    channel = null;
+    return { connection: null, channel: null };
   }
 };
 
@@ -48,20 +64,35 @@ export const getRabbitChannel = () => {
 
 export const publishEvent = async (exchange, routingKey, message) => {
   try {
-    if (!channel) await connectRabbitMQ();
-    if (!channel) {
-      console.warn('RabbitMQ not connected, unable to publish event:', routingKey);
-      return false;
+    if (!channel && process.env.RABBITMQ_URL) {
+      await connectRabbitMQ();
     }
 
-    return channel.publish(
-      exchange,
-      routingKey,
-      Buffer.from(JSON.stringify(message)),
-      { persistent: true }
-    );
+    if (channel) {
+      return channel.publish(
+        exchange,
+        routingKey,
+        Buffer.from(JSON.stringify(message)),
+        { persistent: true }
+      );
+    }
   } catch (error) {
-    console.error(`Error publishing to ${exchange} (${routingKey}):`, error.message);
-    return false;
+    console.warn(`RabbitMQ publish failed for ${exchange} (${routingKey}): ${error.message}. Routing to fallback EventBus.`);
   }
+
+  // Resilient in-process dispatch
+  setImmediate(() => {
+    try {
+      fallbackBus.emit(routingKey, message);
+    } catch (dispatchErr) {
+      console.error(`Fallback EventBus error on ${routingKey}:`, dispatchErr.message);
+    }
+  });
+
+  return true;
 };
+
+export const subscribeFallbackEvent = (routingKey, handler) => {
+  fallbackBus.on(routingKey, handler);
+};
+
