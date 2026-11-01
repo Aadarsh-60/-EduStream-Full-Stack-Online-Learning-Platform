@@ -584,7 +584,7 @@ export const requestSessionRevocationOtp = async (req, res, next) => {
     await setCache(`revocation_otp:${userId}`, otp, 5 * 60);
 
     // Send email via our new worker type
-    sendSessionRevocationEmail(user.email, user.name, otp);
+    await sendSessionRevocationEmail(user.email, user.name, otp);
 
     return successResponse(res, HTTP_STATUS.OK, 'Verification code sent to your email.');
   } catch (err) {

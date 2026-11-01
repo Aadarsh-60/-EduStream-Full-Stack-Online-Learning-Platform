@@ -2,18 +2,22 @@ import { getRabbitChannel, subscribeFallbackEvent } from '../../../../shared/uti
 import { NotificationHubClient, NotificationRequestBuilder } from '@sumitshresht/notificationhub-sdk';
 import nodemailer from 'nodemailer';
 
-// Initialize Notification Hub Client if credentials exist
-let notificationHubClient = null;
-if (process.env.NOTIFICATION_HUB_API_KEY && process.env.NOTIFICATION_HUB_API_SECRET) {
+// Initialize Notification Hub Client dynamically with fallback to project keys
+const getNotificationHubClient = () => {
+  const apiKey = process.env.NOTIFICATION_HUB_API_KEY || 'nh_live_0vn46yjzGVElza55K8Nz_qQcLCkda1zH';
+  const apiSecret = process.env.NOTIFICATION_HUB_API_SECRET || 'NIJ7urdAmU4XNBA5cbUtVXYfNeX2ygVdGV3HrZAnTfbpUZCOi6TsLzjhEs-mVNwU';
+  if (!apiKey || !apiSecret) return null;
+
   try {
-    notificationHubClient = new NotificationHubClient.Builder()
-      .apiKey(process.env.NOTIFICATION_HUB_API_KEY)
-      .apiSecret(process.env.NOTIFICATION_HUB_API_SECRET)
+    return new NotificationHubClient.Builder()
+      .apiKey(apiKey)
+      .apiSecret(apiSecret)
       .build();
   } catch (err) {
     console.warn('⚠️ Could not initialize NotificationHub client:', err.message);
+    return null;
   }
-}
+};
 
 // Nodemailer SMTP Transporter
 const getTransporter = () => {
@@ -84,8 +88,10 @@ export const handleEmailPayload = async (payload) => {
   let delivered = false;
 
   // ── Attempt 1: Notification Hub SDK ──
-  if (notificationHubClient) {
+  const nhClient = getNotificationHubClient();
+  if (nhClient) {
     try {
+      console.log(`📡 [NotificationHub] Dispatching ${type} to ${recipient}...`);
       const request = new NotificationRequestBuilder()
         .addChannel('EMAIL')
         .toEmail(recipient)
@@ -93,8 +99,8 @@ export const handleEmailPayload = async (payload) => {
         .message(message)
         .build();
 
-      await notificationHubClient.notifications().send(request);
-      console.log(`✅ [NotificationHub] Sent ${type} to ${recipient}`);
+      const response = await nhClient.notifications().send(request);
+      console.log(`✅ [NotificationHub] Sent ${type} to ${recipient} (status: ${response?.status || 'QUEUED'})`);
       delivered = true;
     } catch (nhErr) {
       console.warn(`⚠️ NotificationHub send failed (${nhErr.message}). Falling back to Nodemailer SMTP...`);
@@ -140,6 +146,7 @@ export const handleEmailPayload = async (payload) => {
     console.error(`❌ Failed to deliver email to ${recipient}. Please verify SMTP credentials or NotificationHub keys in Render dashboard.`);
   }
 };
+
 
 export const startEmailWorker = async () => {
   const channel = getRabbitChannel();
